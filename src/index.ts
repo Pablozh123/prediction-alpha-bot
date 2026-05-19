@@ -1,7 +1,9 @@
 import "dotenv/config";
+import type { Server } from "node:http";
 import { pathToFileURL } from "node:url";
 import { closeDb, initDb } from "./execution/db.js";
 import { runScanCycle, type ScanCycleLogger } from "./scanner/runScanCycle.js";
+import { closeHealthServer, startHealthServer } from "./utils/health.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
 
 const DEFAULT_SCAN_INTERVAL_MS = 30_000;
@@ -14,6 +16,7 @@ type StartBotOptions = {
   exit?: (code?: number) => void;
   intervalMs?: number;
   logger?: ScanCycleLogger;
+  metricsServer?: boolean;
   registerSignals?: boolean;
   runCycle?: () => Promise<unknown>;
   runInitialScan?: boolean;
@@ -30,6 +33,7 @@ export type BotConfig = {
 export type BotHandle = {
   done: Promise<void>;
   interval?: ReturnType<typeof setInterval>;
+  metricsServer?: Server;
   stop(): void;
 };
 
@@ -91,6 +95,10 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
 
   initDb(options.dbPath ?? config.databasePath);
   logger.info("bot starting in PAPER_ONLY mode");
+  const metricsServer =
+    options.metricsServer === false
+      ? undefined
+      : startHealthServer({ logger });
 
   let completedCycles = 0;
   let interval: ReturnType<typeof setInterval> | undefined;
@@ -112,6 +120,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
       clearInterval(interval);
     }
 
+    void closeHealthServer(metricsServer);
     closeDb();
     logger.info("shutdown complete");
     resolveDone();
@@ -149,6 +158,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
   return {
     done,
     interval,
+    metricsServer,
     stop: () => stop(false)
   };
 }

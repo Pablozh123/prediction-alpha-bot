@@ -38,6 +38,7 @@ describe("startup", () => {
       env: { PAPER_ONLY: "true" },
       intervalMs: 30_000,
       logger,
+      metricsServer: false,
       registerSignals: false,
       runCycle,
       runInitialScan: false
@@ -77,6 +78,7 @@ describe("startup", () => {
       env: { PAPER_ONLY: "true", RUN_ONCE: "true" },
       exit,
       logger,
+      metricsServer: false,
       registerSignals: false,
       runCycle
     });

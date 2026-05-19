@@ -4,6 +4,12 @@ import {
   hasRecentPaperFire,
   recordPaperFire
 } from "../execution/paperDedupe.js";
+import {
+  addOpportunitiesFound,
+  addPaperTrades,
+  incrementErrors,
+  incrementScanCycles
+} from "../utils/metrics.js";
 import { logError, logInfo, logWarn } from "../utils/logger.js";
 import {
   scanNegRiskBracketArbs,
@@ -46,6 +52,8 @@ const defaultLogger: ScanCycleLogger = {
 export async function runScanCycle(
   options: RunScanCycleOptions = {}
 ): Promise<ScanCycleResult> {
+  incrementScanCycles();
+
   const scanner = options.scanner ?? scanNegRiskBracketArbs;
   const execute = options.execute ?? executeOrPaper;
   const logger = options.logger ?? defaultLogger;
@@ -56,6 +64,7 @@ export async function runScanCycle(
 
   try {
     const opportunities = await scanner();
+    addOpportunitiesFound(opportunities.length);
     logger.info(`NEG_RISK bracket opportunities: ${opportunities.length}`);
 
     let paperTrades = 0;
@@ -94,6 +103,8 @@ export async function runScanCycle(
       });
     }
 
+    addPaperTrades(paperTrades);
+
     return {
       success: true,
       opportunities: opportunities.length,
@@ -102,6 +113,7 @@ export async function runScanCycle(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    incrementErrors();
     logger.error(`scan cycle failed: ${message}`);
 
     return {

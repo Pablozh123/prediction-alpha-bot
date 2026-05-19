@@ -1,0 +1,183 @@
+import { describe, expect, it, vi } from "vitest";
+import type {
+  ExecuteOrPaperInput,
+  ExecuteOrPaperResult
+} from "../src/execution/executeOrPaper.js";
+import {
+  DEFAULT_WITHIN_MARKET_ARB_THRESHOLD,
+  paperWithinMarketArbOpportunity,
+  scanWithinMarketArbs,
+  WITHIN_MARKET_ARB_STRATEGY,
+  type WithinMarketArbMarket
+} from "../src/scanner/withinMarketArbScanner.js";
+
+describe("scanWithinMarketArbs", () => {
+  it("finds YES+NO candidates below the default conservative threshold", () => {
+    expect(
+      scanWithinMarketArbs([
+        makeMarket({
+          askYes: 0.45,
+          askNo: 0.52
+        })
+      ])
+    ).toEqual([
+      {
+        slug: "binary-market",
+        question: "Will this resolve yes?",
+        askYes: 0.45,
+        askNo: 0.52,
+        totalCost: 0.97,
+        expectedEdge: 0.03,
+        tokenIds: {
+          yes: "yes-token",
+          no: "no-token"
+        },
+        reason: "yes_no_ask_sum_below_threshold"
+      }
+    ]);
+  });
+
+  it("does not flag candidates at or above the default threshold", () => {
+    expect(
+      scanWithinMarketArbs([
+        makeMarket({
+          askYes: 0.49,
+          askNo: 0.49
+        }),
+        makeMarket({
+          askYes: 0.5,
+          askNo: 0.49
+        })
+      ])
+    ).toEqual([]);
+  });
+
+  it("supports a custom threshold", () => {
+    expect(
+      scanWithinMarketArbs(
+        [
+          makeMarket({
+            askYes: 0.49,
+            askNo: 0.49
+          })
+        ],
+        { threshold: 0.99 }
+      )
+    ).toHaveLength(1);
+  });
+
+  it("skips invalid market fields and warns", () => {
+    const warn = vi.fn();
+
+    expect(
+      scanWithinMarketArbs(
+        [
+          makeMarket({
+            askYes: 0,
+            askNo: 0.5
+          })
+        ],
+        { warn }
+      )
+    ).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      'Skipping within-market arb candidate "binary-market": invalid market fields.'
+    );
+  });
+
+  it("uses the documented default threshold", () => {
+    expect(DEFAULT_WITHIN_MARKET_ARB_THRESHOLD).toBe(0.98);
+  });
+});
+
+describe("paperWithinMarketArbOpportunity", () => {
+  it("papers both YES and NO legs through executeOrPaper", () => {
+    const [opportunity] = scanWithinMarketArbs([
+      makeMarket({
+        askYes: 0.45,
+        askNo: 0.52
+      })
+    ]);
+    const execute = vi.fn(
+      (input: ExecuteOrPaperInput): ExecuteOrPaperResult => ({
+      paper: true,
+      live: false,
+      reason: "paper_only" as const,
+      paperTrade: {
+        id: `${input.side}-trade`,
+        strategy: input.strategy,
+        slug: input.slug ?? null,
+        question: input.question ?? null,
+        tokenId: input.tokenId,
+        side: input.side,
+        sizeUsd: input.paperSizeUsd,
+        entryPrice: input.entryPrice,
+        exitPrice: null,
+        resolved: false,
+        pnl: null,
+        inflationFlagged: false,
+        arbClass: input.arbClass ?? null,
+        timestamp: 1,
+        resolvedAt: null
+      }
+    }));
+
+    const results = paperWithinMarketArbOpportunity(opportunity!, {
+      execute,
+      paperSizeUsd: 2
+    });
+
+    expect(results).toHaveLength(2);
+    expect(execute).toHaveBeenNthCalledWith(1, {
+      strategy: WITHIN_MARKET_ARB_STRATEGY,
+      slug: "binary-market",
+      question: "Will this resolve yes?",
+      tokenId: "yes-token",
+      side: "YES",
+      entryPrice: 0.45,
+      paperSizeUsd: 2,
+      arbClass: WITHIN_MARKET_ARB_STRATEGY
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, {
+      strategy: WITHIN_MARKET_ARB_STRATEGY,
+      slug: "binary-market",
+      question: "Will this resolve yes?",
+      tokenId: "no-token",
+      side: "NO",
+      entryPrice: 0.52,
+      paperSizeUsd: 2,
+      arbClass: WITHIN_MARKET_ARB_STRATEGY
+    });
+  });
+
+  it("contains no live order integration", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(
+      "src/scanner/withinMarketArbScanner.ts",
+      "utf8"
+    );
+
+    expect(source).not.toContain("@polymarket/clob-client");
+    expect(source).not.toContain("createAndPostOrder");
+    expect(source).not.toContain("placeOrder");
+    expect(source).not.toContain("postOrder");
+    expect(source).not.toContain("buyLimit");
+    expect(source).not.toContain("sellPosition");
+  });
+});
+
+function makeMarket(
+  overrides: Partial<WithinMarketArbMarket> = {}
+): WithinMarketArbMarket {
+  return {
+    slug: "binary-market",
+    question: "Will this resolve yes?",
+    askYes: 0.5,
+    askNo: 0.5,
+    tokenIds: {
+      yes: "yes-token",
+      no: "no-token"
+    },
+    ...overrides
+  };
+}
