@@ -1,0 +1,33 @@
+{
+  "name": "prediction-alpha-bot",
+  "version": "0.1.0",
+  "description": "Paper-only prediction market scanner skeleton.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "dev:once": "tsx src/index.ts --once",
+    "db:inspect": "tsx src/scripts/inspectDb.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "axios": "latest",
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "uuid": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/node": "latest",
+    "eslint": "latest",
+    "prettier": "latest",
+    "typescript-eslint": "latest",
+    "vitest": "latest"
+  }
+}
