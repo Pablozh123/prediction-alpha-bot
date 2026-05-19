@@ -32,6 +32,7 @@ describe("trade journal", () => {
     expect(existsSync(testDbPath)).toBe(true);
     expect(tables).toEqual([
       "live_trades",
+      "opportunities",
       "paper_fire_dedup",
       "paper_trades"
     ]);

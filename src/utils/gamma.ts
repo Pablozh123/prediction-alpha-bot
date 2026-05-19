@@ -36,6 +36,19 @@ export async function fetchNegRiskEvents(
   return response.data;
 }
 
+export async function fetchActiveEvents(limit = 200): Promise<GammaRawEvent[]> {
+  const response = await axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
+    params: {
+      active: true,
+      closed: false,
+      limit
+    },
+    timeout: GAMMA_TIMEOUT_MS
+  });
+
+  return response.data;
+}
+
 export function parseJsonArrayField<T>(value: string | T[]): T[] {
   if (Array.isArray(value)) {
     return value;

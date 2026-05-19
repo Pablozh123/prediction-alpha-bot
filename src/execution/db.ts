@@ -80,6 +80,21 @@ CREATE TABLE IF NOT EXISTS paper_fire_dedup (
 
 CREATE INDEX IF NOT EXISTS idx_paper_fire_dedup_fired_at
 ON paper_fire_dedup(fired_at);
+
+CREATE TABLE IF NOT EXISTS opportunities (
+  id TEXT PRIMARY KEY,
+  strategy TEXT NOT NULL,
+  slug TEXT,
+  raw_edge REAL,
+  executable_edge REAL,
+  status TEXT NOT NULL,
+  reason TEXT,
+  token_ids TEXT,
+  timestamp INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_status_timestamp
+ON opportunities(status, timestamp);
 `;
 
 export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {

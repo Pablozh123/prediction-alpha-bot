@@ -158,7 +158,32 @@ describe("health and metrics", () => {
             }
           ]
         }
-      ]
+      ],
+      withinMarketScanner: async () => [],
+      validateOpportunity: async () => ({
+        eventSlug: "rate-cuts-2026",
+        threshold: 1.03,
+        executableSum: 0.6,
+        expectedGrossEdge: 0.4,
+        fillable: true,
+        valid: true,
+        reason: "orderbook_validated",
+        legs: [
+          {
+            marketId: "m1",
+            slug: "zero-cuts",
+            question: "Zero cuts?",
+            tokenId: "m1-no",
+            sideToPaperTrade: "NO",
+            averageFillPrice: 0.6,
+            maxFillableUsd: 100,
+            bestBid: 0.58,
+            bestAsk: 0.6,
+            fillable: true,
+            reason: "fillable"
+          }
+        ]
+      })
     });
 
     expect(getMetricsSnapshot()).toMatchObject({

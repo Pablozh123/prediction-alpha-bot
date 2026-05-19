@@ -2,6 +2,11 @@ import {
   executeOrPaper,
   type ExecuteOrPaperResult
 } from "../execution/executeOrPaper.js";
+import {
+  fetchActiveEvents,
+  normalizeGammaMarket,
+  type GammaRawEvent
+} from "../utils/gamma.js";
 
 export const DEFAULT_WITHIN_MARKET_ARB_THRESHOLD = 0.98;
 export const WITHIN_MARKET_ARB_STRATEGY = "within_market_yes_no_arb";
@@ -36,12 +41,76 @@ export type ScanWithinMarketArbOptions = {
   warn?: (message: string) => void;
 };
 
+export type ScanWithinMarketArbOpportunitiesOptions =
+  ScanWithinMarketArbOptions & {
+    limit?: number;
+  };
+
 export type PaperWithinMarketArbOptions = {
   execute?: typeof executeOrPaper;
   paperSizeUsd?: number;
 };
 
 const DEFAULT_PAPER_SIZE_USD = 1;
+const DEFAULT_WITHIN_MARKET_SCAN_LIMIT = 200;
+
+export async function scanWithinMarketArbOpportunities(
+  options: ScanWithinMarketArbOpportunitiesOptions = {}
+): Promise<WithinMarketArbOpportunity[]> {
+  const events = await fetchActiveEvents(
+    options.limit ?? DEFAULT_WITHIN_MARKET_SCAN_LIMIT
+  );
+
+  return scanWithinMarketGammaEvents(events, options);
+}
+
+export function scanWithinMarketGammaEvents(
+  events: GammaRawEvent[],
+  options: ScanWithinMarketArbOptions = {}
+): WithinMarketArbOpportunity[] {
+  const warn = options.warn ?? console.warn;
+  const markets: WithinMarketArbMarket[] = [];
+
+  for (const event of events) {
+    const rawMarkets = Array.isArray(event.markets) ? event.markets : [];
+
+    for (const rawMarket of rawMarkets) {
+      try {
+        const market = normalizeGammaMarket(rawMarket);
+        const [yesTokenId, noTokenId] = market.clobTokenIds;
+        const askYes = Number(market.outcomePrices[0]);
+        const askNo = Number(market.outcomePrices[1]);
+
+        if (
+          !market.slug ||
+          !market.question ||
+          !yesTokenId ||
+          !noTokenId ||
+          !isPlausibleAsk(askYes) ||
+          !isPlausibleAsk(askNo)
+        ) {
+          continue;
+        }
+
+        markets.push({
+          slug: market.slug,
+          question: market.question,
+          askYes,
+          askNo,
+          tokenIds: {
+            yes: yesTokenId ?? "",
+            no: noTokenId ?? ""
+          }
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        warn(`Skipping within-market candidate: ${detail}`);
+      }
+    }
+  }
+
+  return scanWithinMarketArbs(markets, options);
+}
 
 export function scanWithinMarketArbs(
   markets: WithinMarketArbMarket[],

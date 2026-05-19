@@ -33,17 +33,20 @@ export type ScanNegRiskBracketOptions = {
 export async function scanNegRiskBracketOpportunities(options: {
   limit?: number;
   threshold?: number;
+  warn?: (message: string) => void;
 } = {}): Promise<NegRiskBracketOpportunity[]> {
   const events = await fetchNegRiskEvents(options.limit);
 
   return scanNegRiskBracketEvents(events, {
-    threshold: options.threshold
+    threshold: options.threshold,
+    warn: options.warn
   });
 }
 
 export async function scanNegRiskBracketArbs(options: {
   limit?: number;
   threshold?: number;
+  warn?: (message: string) => void;
 } = {}): Promise<NegRiskBracketOpportunity[]> {
   return scanNegRiskBracketOpportunities(options);
 }
