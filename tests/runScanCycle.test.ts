@@ -48,7 +48,7 @@ describe("runScanCycle", () => {
     expect(logger.info).toHaveBeenCalledWith(
       "NEG_RISK bracket opportunities: 1"
     );
-    expect(execute).toHaveBeenCalledWith({
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
       strategy: "neg_risk_bracket_arb",
       slug: "zero-cuts",
       question: "Zero cuts?",
@@ -57,7 +57,7 @@ describe("runScanCycle", () => {
       entryPrice: 0.35,
       paperSizeUsd: 1,
       arbClass: "neg_risk_bracket_arb"
-    });
+    }));
     expect(listRecentOpportunities(10)[0]).toMatchObject({
       status: "paper_fired",
       rawEdge: 0.03,
@@ -90,7 +90,10 @@ describe("runScanCycle", () => {
       error: "Gamma unavailable"
     });
     expect(logger.error).toHaveBeenCalledWith(
-      "scan cycle failed: Gamma unavailable"
+      expect.stringContaining('"event":"scan_cycle_failed"')
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("Gamma unavailable")
     );
   });
 
@@ -268,7 +271,7 @@ describe("runScanCycle", () => {
       skippedDuplicates: 0,
       rejectedOpportunities: 0
     });
-    expect(execute).toHaveBeenNthCalledWith(1, {
+    expect(execute).toHaveBeenNthCalledWith(1, expect.objectContaining({
       strategy: "within_market_yes_no_arb",
       slug: "binary-market",
       question: "Will this resolve yes?",
@@ -277,8 +280,8 @@ describe("runScanCycle", () => {
       entryPrice: 0.45,
       paperSizeUsd: 1,
       arbClass: "within_market_yes_no_arb"
-    });
-    expect(execute).toHaveBeenNthCalledWith(2, {
+    }));
+    expect(execute).toHaveBeenNthCalledWith(2, expect.objectContaining({
       strategy: "within_market_yes_no_arb",
       slug: "binary-market",
       question: "Will this resolve yes?",
@@ -287,7 +290,7 @@ describe("runScanCycle", () => {
       entryPrice: 0.52,
       paperSizeUsd: 1,
       arbClass: "within_market_yes_no_arb"
-    });
+    }));
     expect(listRecentOpportunities(10)[0]).toMatchObject({
       strategy: "within_market_yes_no_arb",
       status: "paper_fired",

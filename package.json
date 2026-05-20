@@ -9,6 +9,7 @@
     "dev:once": "tsx src/index.ts --once",
     "metrics:dev": "tsx src/index.ts",
     "db:inspect": "tsx src/scripts/inspectDb.ts",
+    "paper:report": "tsx src/scripts/paperReport.ts",
     "reconcile:once": "tsx src/execution/reconciliation.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",

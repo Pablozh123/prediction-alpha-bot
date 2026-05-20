@@ -1,4 +1,5 @@
 import axios from "axios";
+import { retryWithBackoff, withTimeout } from "./reliability.js";
 
 const GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events";
 const GAMMA_TIMEOUT_MS = 10_000;
@@ -23,28 +24,44 @@ export type NormalizedGammaMarket = {
 export async function fetchNegRiskEvents(
   limit = 200
 ): Promise<GammaRawEvent[]> {
-  const response = await axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
-    params: {
-      negRisk: true,
-      active: true,
-      closed: false,
-      limit
-    },
-    timeout: GAMMA_TIMEOUT_MS
-  });
+  const response = await retryWithBackoff(
+    () =>
+      withTimeout(
+        axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
+          params: {
+            negRisk: true,
+            active: true,
+            closed: false,
+            limit
+          },
+          timeout: GAMMA_TIMEOUT_MS
+        }),
+        GAMMA_TIMEOUT_MS + 1_000,
+        "Gamma NEG_RISK events request timed out."
+      ),
+    { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 }
+  );
 
   return response.data;
 }
 
 export async function fetchActiveEvents(limit = 200): Promise<GammaRawEvent[]> {
-  const response = await axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
-    params: {
-      active: true,
-      closed: false,
-      limit
-    },
-    timeout: GAMMA_TIMEOUT_MS
-  });
+  const response = await retryWithBackoff(
+    () =>
+      withTimeout(
+        axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
+          params: {
+            active: true,
+            closed: false,
+            limit
+          },
+          timeout: GAMMA_TIMEOUT_MS
+        }),
+        GAMMA_TIMEOUT_MS + 1_000,
+        "Gamma active events request timed out."
+      ),
+    { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 }
+  );
 
   return response.data;
 }

@@ -11,6 +11,7 @@ export type RecordPaperTradeInput = {
   slug?: string;
   question?: string;
   tokenId?: string;
+  opportunityId?: string;
   arbClass?: string;
   timestamp?: number;
 };
@@ -21,6 +22,7 @@ export type PaperTrade = {
   slug: string | null;
   question: string | null;
   tokenId: string | null;
+  opportunityId: string | null;
   side: PaperTradeSide;
   sizeUsd: number;
   entryPrice: number;
@@ -39,6 +41,7 @@ type PaperTradeRow = {
   slug: string | null;
   question: string | null;
   token_id: string | null;
+  opportunity_id: string | null;
   side: PaperTradeSide;
   size_usd: number;
   entry_price: number;
@@ -58,6 +61,7 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
     slug: input.slug ?? null,
     question: input.question ?? null,
     tokenId: input.tokenId ?? null,
+    opportunityId: input.opportunityId ?? null,
     side: input.side,
     sizeUsd: input.sizeUsd,
     entryPrice: input.entryPrice,
@@ -79,6 +83,7 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
         slug,
         question,
         token_id,
+        opportunity_id,
         side,
         size_usd,
         entry_price,
@@ -95,6 +100,7 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
         @slug,
         @question,
         @tokenId,
+        @opportunityId,
         @side,
         @sizeUsd,
         @entryPrice,
@@ -127,6 +133,7 @@ export function listRecentPaperTrades(limit: number): PaperTrade[] {
         slug,
         question,
         token_id,
+        opportunity_id,
         side,
         size_usd,
         entry_price,
@@ -154,6 +161,7 @@ function mapPaperTradeRow(row: PaperTradeRow): PaperTrade {
     slug: row.slug,
     question: row.question,
     tokenId: row.token_id,
+    opportunityId: row.opportunity_id,
     side: row.side,
     sizeUsd: row.size_usd,
     entryPrice: row.entry_price,

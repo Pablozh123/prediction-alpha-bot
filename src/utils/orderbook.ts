@@ -1,7 +1,15 @@
 import axios from "axios";
+import {
+  createConcurrencyLimiter,
+  retryWithBackoff,
+  withTimeout
+} from "./reliability.js";
 
 const POLYMARKET_CLOB_BOOK_URL = "https://clob.polymarket.com/book";
 const ORDERBOOK_TIMEOUT_MS = 10_000;
+const ORDERBOOK_MAX_CONCURRENCY = 4;
+
+const orderbookLimiter = createConcurrencyLimiter(ORDERBOOK_MAX_CONCURRENCY);
 
 export type OrderBookLevel = {
   price: number;
@@ -46,12 +54,22 @@ export async function fetchOrderBook(tokenId: string): Promise<OrderBook> {
   }
 
   try {
-    const response = await axios.get<RawOrderBook>(POLYMARKET_CLOB_BOOK_URL, {
-      params: {
-        token_id: tokenId
-      },
-      timeout: ORDERBOOK_TIMEOUT_MS
-    });
+    const response = await orderbookLimiter.run(() =>
+      retryWithBackoff(
+        () =>
+          withTimeout(
+            axios.get<RawOrderBook>(POLYMARKET_CLOB_BOOK_URL, {
+              params: {
+                token_id: tokenId
+              },
+              timeout: ORDERBOOK_TIMEOUT_MS
+            }),
+            ORDERBOOK_TIMEOUT_MS + 1_000,
+            `Orderbook request for token "${tokenId}" timed out.`
+          ),
+        { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 }
+      )
+    );
 
     return normalizeOrderBook(response.data, tokenId);
   } catch (error) {
@@ -60,6 +78,18 @@ export async function fetchOrderBook(tokenId: string): Promise<OrderBook> {
       cause: error
     });
   }
+}
+
+export function getOrderbookLimiterStats(): {
+  active: number;
+  queued: number;
+  maxConcurrency: number;
+} {
+  return {
+    active: orderbookLimiter.getActiveCount(),
+    queued: orderbookLimiter.getQueuedCount(),
+    maxConcurrency: ORDERBOOK_MAX_CONCURRENCY
+  };
 }
 
 export function getBestBidAsk(orderbook: OrderBook): BestBidAsk {

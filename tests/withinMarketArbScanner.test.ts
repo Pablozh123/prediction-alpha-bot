@@ -109,6 +109,7 @@ describe("paperWithinMarketArbOpportunity", () => {
         slug: input.slug ?? null,
         question: input.question ?? null,
         tokenId: input.tokenId,
+        opportunityId: input.opportunityId ?? null,
         side: input.side,
         sizeUsd: input.paperSizeUsd,
         entryPrice: input.entryPrice,

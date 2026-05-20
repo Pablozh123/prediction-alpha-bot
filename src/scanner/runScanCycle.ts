@@ -8,13 +8,20 @@ import {
   hasRecentPaperFire,
   recordPaperFire
 } from "../execution/paperDedupe.js";
+import { recordScanCycle } from "../execution/scanCycleJournal.js";
 import {
   addOpportunitiesFound,
   addPaperTrades,
   incrementErrors,
-  incrementScanCycles
+  incrementScanCycles,
+  observeScanCycleDuration
 } from "../utils/metrics.js";
-import { logError, logInfo, logWarn } from "../utils/logger.js";
+import {
+  formatStructuredError,
+  logError,
+  logInfo,
+  logWarn
+} from "../utils/logger.js";
 import {
   scanNegRiskBracketArbs,
   type NegRiskBracketOpportunity
@@ -80,6 +87,7 @@ export async function runScanCycle(
   options: RunScanCycleOptions = {}
 ): Promise<ScanCycleResult> {
   incrementScanCycles();
+  const cycleStartedAt = Date.now();
 
   const scanner = options.scanner;
   const withinMarketScanner =
@@ -199,6 +207,7 @@ export async function runScanCycle(
           slug: leg.slug,
           question: leg.question,
           tokenId: leg.tokenId,
+          opportunityId: journaledOpportunity.id,
           side: leg.sideToPaperTrade,
           entryPrice,
           paperSizeUsd,
@@ -238,19 +247,28 @@ export async function runScanCycle(
 
     addPaperTrades(paperTrades);
 
-    return {
+    const result = {
       success: true,
       opportunities: opportunities.length + withinMarketOpportunities.length,
       paperTrades,
       skippedDuplicates,
       rejectedOpportunities
     };
+
+    recordScanCycle(result);
+    observeScanCycleDuration(Date.now() - cycleStartedAt);
+
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     incrementErrors();
-    logger.error(`scan cycle failed: ${message}`);
+    logger.error(
+      formatStructuredError("scan_cycle_failed", error, {
+        component: "scanner"
+      })
+    );
 
-    return {
+    const result = {
       success: false,
       opportunities: 0,
       paperTrades: 0,
@@ -258,6 +276,11 @@ export async function runScanCycle(
       rejectedOpportunities: 0,
       error: message
     };
+
+    recordScanCycle(result);
+    observeScanCycleDuration(Date.now() - cycleStartedAt);
+
+    return result;
   }
 }
 
@@ -415,6 +438,7 @@ async function processWithinMarketOpportunity(
     slug: input.opportunity.slug,
     question: input.opportunity.question,
     tokenId: input.opportunity.tokenIds.yes,
+    opportunityId: journaledOpportunity.id,
     side: "YES",
     entryPrice: validated.askYes,
     paperSizeUsd: input.paperSizeUsd,
@@ -425,6 +449,7 @@ async function processWithinMarketOpportunity(
     slug: input.opportunity.slug,
     question: input.opportunity.question,
     tokenId: input.opportunity.tokenIds.no,
+    opportunityId: journaledOpportunity.id,
     side: "NO",
     entryPrice: validated.askNo,
     paperSizeUsd: input.paperSizeUsd,

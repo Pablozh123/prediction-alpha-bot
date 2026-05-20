@@ -34,7 +34,8 @@ describe("trade journal", () => {
       "live_trades",
       "opportunities",
       "paper_fire_dedup",
-      "paper_trades"
+      "paper_trades",
+      "scan_cycles"
     ]);
   });
 
@@ -46,6 +47,7 @@ describe("trade journal", () => {
       slug: "example-event",
       question: "Example question?",
       tokenId: "token-1",
+      opportunityId: "opportunity-1",
       side: "YES",
       sizeUsd: 10,
       entryPrice: 0.42,
@@ -58,6 +60,7 @@ describe("trade journal", () => {
     );
     expect(trade.resolved).toBe(false);
     expect(trade.inflationFlagged).toBe(false);
+    expect(trade.opportunityId).toBe("opportunity-1");
   });
 
   it("reads recent paper trades", () => {

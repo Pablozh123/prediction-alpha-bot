@@ -40,11 +40,12 @@ describe("orderbook utilities", () => {
 
   it("wraps API failures with a clear token-specific error", async () => {
     const get = vi.mocked(axios.get);
-    get.mockRejectedValueOnce(new Error("network unavailable"));
+    get.mockRejectedValue(new Error("network unavailable"));
 
     await expect(fetchOrderBook("no-token")).rejects.toThrow(
       'Failed to fetch orderbook for token "no-token": network unavailable'
     );
+    get.mockReset();
   });
 
   it("returns null bid and ask for an empty orderbook", () => {

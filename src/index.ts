@@ -4,7 +4,14 @@ import { pathToFileURL } from "node:url";
 import { closeDb, initDb } from "./execution/db.js";
 import { runScanCycle, type ScanCycleLogger } from "./scanner/runScanCycle.js";
 import { closeHealthServer, startHealthServer } from "./utils/health.js";
-import { logError, logInfo, logWarn } from "./utils/logger.js";
+import {
+  formatStructuredError,
+  formatStructuredLog,
+  logError,
+  logInfo,
+  logWarn
+} from "./utils/logger.js";
+import { incrementErrors, incrementScanOverlapSkips } from "./utils/metrics.js";
 
 const DEFAULT_SCAN_INTERVAL_MS = 30_000;
 const DEFAULT_PAPER_FIRE_COOLDOWN_MS = 21_600_000;
@@ -102,6 +109,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
 
   let completedCycles = 0;
   let interval: ReturnType<typeof setInterval> | undefined;
+  let cycleInFlight = false;
   let stopped = false;
   let resolveDone: () => void = () => undefined;
 
@@ -131,10 +139,27 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
   };
 
   const runCycleSafely = (): void => {
+    if (cycleInFlight) {
+      incrementScanOverlapSkips();
+      logger.warn(
+        formatStructuredLog("warn", "scan_cycle_skipped", {
+          reason: "previous_scan_still_running"
+        })
+      );
+      return;
+    }
+
+    cycleInFlight = true;
+
     void runCycle().catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error(`scan cycle failed: ${message}`);
+      incrementErrors();
+      logger.error(
+        formatStructuredError("scan_cycle_unhandled_error", error, {
+          component: "main_loop"
+        })
+      );
     }).finally(() => {
+      cycleInFlight = false;
       completedCycles += 1;
 
       if (maxScanCycles !== undefined && completedCycles >= maxScanCycles) {

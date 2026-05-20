@@ -3,12 +3,14 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { closeDb } from "../src/execution/db.js";
 import { assertPaperOnlyEnv, loadBotConfig, startBot } from "../src/index.js";
+import { getMetricsSnapshot, resetMetrics } from "../src/utils/metrics.js";
 
 const testDbPath = join("logs", "index-test.db");
 
 describe("startup", () => {
   afterEach(() => {
     vi.useRealTimers();
+    resetMetrics();
     closeDb();
     rmSync(testDbPath, { force: true });
   });
@@ -88,5 +90,48 @@ describe("startup", () => {
     expect(handle.interval).toBeUndefined();
     expect(runCycle).toHaveBeenCalledTimes(1);
     expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("skips overlapping interval scans while a previous scan is still running", async () => {
+    vi.useFakeTimers();
+    resetMetrics();
+
+    let resolveRun: () => void = () => undefined;
+    const runCycle = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRun = resolve;
+        })
+    );
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn()
+    };
+
+    const handle = startBot({
+      dbPath: testDbPath,
+      env: { PAPER_ONLY: "true" },
+      intervalMs: 100,
+      logger,
+      metricsServer: false,
+      registerSignals: false,
+      runCycle,
+      runInitialScan: false
+    });
+
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(runCycle).toHaveBeenCalledTimes(1);
+    expect(getMetricsSnapshot().botScanOverlapSkipsTotal).toBe(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('"event":"scan_cycle_skipped"')
+    );
+
+    resolveRun();
+    await vi.advanceTimersByTimeAsync(0);
+    handle.stop();
+    await handle.done;
   });
 });

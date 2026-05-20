@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   slug TEXT,
   question TEXT,
   token_id TEXT,
+  opportunity_id TEXT,
   side TEXT NOT NULL,
   size_usd REAL NOT NULL,
   entry_price REAL NOT NULL,
@@ -95,6 +96,20 @@ CREATE TABLE IF NOT EXISTS opportunities (
 
 CREATE INDEX IF NOT EXISTS idx_opportunities_status_timestamp
 ON opportunities(status, timestamp);
+
+CREATE TABLE IF NOT EXISTS scan_cycles (
+  id TEXT PRIMARY KEY,
+  timestamp INTEGER NOT NULL,
+  success INTEGER NOT NULL,
+  opportunities INTEGER NOT NULL,
+  paper_trades INTEGER NOT NULL,
+  skipped_duplicates INTEGER NOT NULL,
+  rejected_opportunities INTEGER NOT NULL,
+  error TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_scan_cycles_timestamp
+ON scan_cycles(timestamp);
 `;
 
 export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
@@ -113,6 +128,7 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   db = new Database(resolvedPath);
   activeDbPath = resolvedPath;
   db.exec(schema);
+  ensureColumn("paper_trades", "opportunity_id", "TEXT");
 
   return db;
 }
@@ -129,4 +145,23 @@ export function closeDb(): void {
   db.close();
   db = undefined;
   activeDbPath = undefined;
+}
+
+function ensureColumn(
+  tableName: string,
+  columnName: string,
+  columnDefinition: string
+): void {
+  if (!db) {
+    return;
+  }
+
+  const hasColumn = db
+    .prepare<{ name: string }>(`PRAGMA table_info(${tableName})`)
+    .all()
+    .some((column) => column.name === columnName);
+
+  if (!hasColumn) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+  }
 }

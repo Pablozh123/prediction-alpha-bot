@@ -17,6 +17,8 @@ import {
   getMetricsSnapshot,
   incrementErrors,
   incrementScanCycles,
+  incrementScanOverlapSkips,
+  observeScanCycleDuration,
   renderPrometheusMetrics,
   resetMetrics
 } from "../src/utils/metrics.js";
@@ -60,13 +62,19 @@ describe("health and metrics", () => {
     addPaperTrades(7);
     addLiveTrades(0);
     incrementErrors();
+    incrementScanOverlapSkips();
+    observeScanCycleDuration(123.4);
 
     expect(getMetricsSnapshot()).toEqual({
       botScanCyclesTotal: 1,
       botOpportunitiesFoundTotal: 3,
       botPaperTradesTotal: 7,
       botLiveTradesTotal: 0,
-      botErrorsTotal: 1
+      botErrorsTotal: 1,
+      botScanOverlapSkipsTotal: 1,
+      botScanCycleDurationMsLast: 123,
+      botScanCycleDurationMsSum: 123,
+      botScanCycleDurationMsCount: 1
     });
     expect(renderPrometheusMetrics()).toBe(
       [
@@ -80,6 +88,14 @@ describe("health and metrics", () => {
         "bot_live_trades_total 0",
         "# TYPE bot_errors_total counter",
         "bot_errors_total 1",
+        "# TYPE bot_scan_overlap_skips_total counter",
+        "bot_scan_overlap_skips_total 1",
+        "# TYPE bot_scan_cycle_duration_ms gauge",
+        "bot_scan_cycle_duration_ms 123",
+        "# TYPE bot_scan_cycle_duration_ms_sum counter",
+        "bot_scan_cycle_duration_ms_sum 123",
+        "# TYPE bot_scan_cycle_duration_ms_count counter",
+        "bot_scan_cycle_duration_ms_count 1",
         ""
       ].join("\n")
     );
@@ -93,7 +109,11 @@ describe("health and metrics", () => {
       botOpportunitiesFoundTotal: 2,
       botPaperTradesTotal: 3,
       botLiveTradesTotal: 0,
-      botErrorsTotal: 4
+      botErrorsTotal: 4,
+      botScanOverlapSkipsTotal: 0,
+      botScanCycleDurationMsLast: 0,
+      botScanCycleDurationMsSum: 0,
+      botScanCycleDurationMsCount: 0
     });
 
     expect(metrics).toContain("bot_scan_cycles_total 1");
@@ -191,7 +211,8 @@ describe("health and metrics", () => {
       botOpportunitiesFoundTotal: 1,
       botPaperTradesTotal: 1,
       botLiveTradesTotal: 0,
-      botErrorsTotal: 0
+      botErrorsTotal: 0,
+      botScanCycleDurationMsCount: 1
     });
   });
 });

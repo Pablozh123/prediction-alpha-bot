@@ -12,6 +12,7 @@ const executeOrPaperInputSchema = z.object({
   slug: optionalText,
   question: optionalText,
   tokenId: z.string().trim().min(1),
+  opportunityId: optionalText,
   side: z.enum(["YES", "NO"]),
   entryPrice: z.number().finite().min(0).max(1),
   paperSizeUsd: z.number().finite().positive(),
@@ -24,6 +25,7 @@ export type ExecuteOrPaperInput = {
   slug?: string;
   question?: string;
   tokenId: string;
+  opportunityId?: string;
   side: PaperTradeSide;
   entryPrice: number;
   paperSizeUsd: number;
@@ -47,6 +49,7 @@ export function executeOrPaper(
     slug: parsed.slug,
     question: parsed.question,
     tokenId: parsed.tokenId,
+    opportunityId: parsed.opportunityId,
     side: parsed.side,
     sizeUsd: parsed.paperSizeUsd,
     entryPrice: parsed.entryPrice,
