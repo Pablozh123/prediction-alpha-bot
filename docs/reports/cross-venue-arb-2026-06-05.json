@@ -1,0 +1,243 @@
+{
+  "reportDate": "2026-06-05",
+  "generatedAt": "2026-06-05T15:56:55.959Z",
+  "configPath": "config/crossVenuePairs.json",
+  "autoDiscover": true,
+  "dryRun": true,
+  "minNetCents": 0.5,
+  "feesCents": {},
+  "summary": {
+    "pairsScanned": 1,
+    "opportunities": 1,
+    "priceSpreads": 2,
+    "rejectedPairs": 0
+  },
+  "discoveryResult": {
+    "pairs": [],
+    "kalshiMarketCount": 1000,
+    "polymarketMarketCount": 2688,
+    "candidatePreview": [
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026078E87A6FCA-227CBC2DD37",
+        "kalshiTitle": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-h-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate H win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "9691186721676351619458750872149903700994927917891208205624791773982533102857",
+        "noTokenId": "35110579796959565165503520531803771988807082258883040147328837257333185947104",
+        "outcomeLabel": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1781872200000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026078E87A6FCA-227CBC2DD37",
+        "kalshiTitle": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-i-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate I win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "97358947453779688344143337114894008000505053791863687279492886106410593261059",
+        "noTokenId": "65076714487960542306703721207833959271300670224376372016105797516333654483508",
+        "outcomeLabel": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1781872200000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026078E87A6FCA-227CBC2DD37",
+        "kalshiTitle": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-j-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate J win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "90456158885514728456521991884539208369484437106533254906782324588425014367699",
+        "noTokenId": "68735637630744375634537857792467305381037382158150473407606058812199053870478",
+        "outcomeLabel": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1781872200000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S20267CE007F5628-647EFBA6EF7",
+        "kalshiTitle": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-h-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate H win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "9691186721676351619458750872149903700994927917891208205624791773982533102857",
+        "noTokenId": "35110579796959565165503520531803771988807082258883040147328837257333185947104",
+        "outcomeLabel": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "expectedResolutionAt": 1780971000000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S20267CE007F5628-647EFBA6EF7",
+        "kalshiTitle": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-i-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate I win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "97358947453779688344143337114894008000505053791863687279492886106410593261059",
+        "noTokenId": "65076714487960542306703721207833959271300670224376372016105797516333654483508",
+        "outcomeLabel": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "expectedResolutionAt": 1780971000000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S20267CE007F5628-647EFBA6EF7",
+        "kalshiTitle": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-j-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate J win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "90456158885514728456521991884539208369484437106533254906782324588425014367699",
+        "noTokenId": "68735637630744375634537857792467305381037382158150473407606058812199053870478",
+        "outcomeLabel": "no Los Angeles A wins by over 3.5 runs,yes Over 7.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 4.5 runs scored,yes Over 6.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored,yes Over 5.5 runs scored,yes Over 3.5 runs scored,yes Over 4.5 runs scored",
+        "expectedResolutionAt": 1780971000000,
+        "matchScore": 0.34,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026A65E8DF318B-35C114AE635",
+        "kalshiTitle": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-h-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate H win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "9691186721676351619458750872149903700994927917891208205624791773982533102857",
+        "noTokenId": "35110579796959565165503520531803771988807082258883040147328837257333185947104",
+        "outcomeLabel": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1780942800000,
+        "matchScore": 0.334,
+        "matchReason": "shared=win,los,angeles;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026A65E8DF318B-35C114AE635",
+        "kalshiTitle": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-i-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate I win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "97358947453779688344143337114894008000505053791863687279492886106410593261059",
+        "noTokenId": "65076714487960542306703721207833959271300670224376372016105797516333654483508",
+        "outcomeLabel": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1780942800000,
+        "matchScore": 0.334,
+        "matchReason": "shared=win,los,angeles;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026A65E8DF318B-35C114AE635",
+        "kalshiTitle": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-j-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate J win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "90456158885514728456521991884539208369484437106533254906782324588425014367699",
+        "noTokenId": "68735637630744375634537857792467305381037382158150473407606058812199053870478",
+        "outcomeLabel": "yes Chicago C wins by over 1.5 runs,yes Philadelphia wins by over 1.5 runs,yes Atlanta wins by over 1.5 runs,yes Los Angeles D wins by over 1.5 runs",
+        "expectedResolutionAt": 1780942800000,
+        "matchScore": 0.334,
+        "matchReason": "shared=win,los,angeles;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      },
+      {
+        "kalshiTicker": "KXMVESPORTSMULTIGAMEEXTENDED-S2026BBB298DBD77-1CAAA32BC8D",
+        "kalshiTitle": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs,yes Over 4.5 runs scored",
+        "kalshiSubtitle": "",
+        "polymarketSlug": "will-candidate-h-win-the-2026-los-angeles-mayoral-election",
+        "polymarketQuestion": "Will Candidate H win the 2026 Los Angeles mayoral election?",
+        "yesTokenId": "9691186721676351619458750872149903700994927917891208205624791773982533102857",
+        "noTokenId": "35110579796959565165503520531803771988807082258883040147328837257333185947104",
+        "outcomeLabel": "yes Flavio Cobolli,yes Los Angeles D wins by over 1.5 runs,yes Over 4.5 runs scored",
+        "expectedResolutionAt": 1781872200000,
+        "matchScore": 0.334,
+        "matchReason": "shared=los,angeles,win;anchors=los,angeles",
+        "status": "compound_kalshi_market"
+      }
+    ]
+  },
+  "pairs": [
+    {
+      "id": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "enabled": true,
+      "expectedResolutionAt": 1798779540000,
+      "kalshi": {
+        "ticker": "KXRECOGSOMALI-29-27"
+      },
+      "polymarket": {
+        "slug": "will-trump-recognize-somaliland-before-2027",
+        "yesTokenId": "102929345572635447239887363328073498574489822201252070158392894695407110289078",
+        "noTokenId": "45379554986085871584947058416771977376718772776823210930085949823850591101312"
+      }
+    }
+  ],
+  "opportunities": [
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "slug": "will-trump-recognize-somaliland-before-2027",
+      "buyYesVenue": "polymarket",
+      "buyNoVenue": "kalshi",
+      "grossCents": 6.5,
+      "feeCents": 0,
+      "netCents": 6.5,
+      "roiBps": 695.19,
+      "totalTopOfBookCost": 0.935,
+      "executableSize": 100,
+      "maxProfitDollars": 2.9,
+      "expectedResolutionAt": 1798779540000,
+      "reason": "cross_venue_yes_no_below_one",
+      "yesLeg": {
+        "venue": "polymarket",
+        "side": "YES",
+        "identifier": "will-trump-recognize-somaliland-before-2027",
+        "bestAsk": 0.105,
+        "averageFillPrice": 0.141003
+      },
+      "noLeg": {
+        "venue": "kalshi",
+        "side": "NO",
+        "identifier": "KXRECOGSOMALI-29-27",
+        "bestAsk": 0.83,
+        "averageFillPrice": 0.83
+      }
+    }
+  ],
+  "priceSpreads": [
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "YES",
+      "cheapVenue": "polymarket",
+      "richVenue": "kalshi",
+      "cheapPrice": 0.105,
+      "richPrice": 0.23,
+      "diffCents": 12.5,
+      "reason": "same_outcome_price_difference"
+    },
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "NO",
+      "cheapVenue": "kalshi",
+      "richVenue": "polymarket",
+      "cheapPrice": 0.83,
+      "richPrice": 0.905,
+      "diffCents": 7.5,
+      "reason": "same_outcome_price_difference"
+    }
+  ],
+  "rejectedPairs": []
+}

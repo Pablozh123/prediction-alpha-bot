@@ -1,0 +1,469 @@
+{
+  "generatedAt": "2026-05-22T16:52:46.918Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\forward-clean-2026-05-22.db",
+  "scanCycles": {
+    "total": 137,
+    "successful": 137,
+    "failed": 0
+  },
+  "scannerRuns": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "runs": 137,
+      "rawOpportunities": 0,
+      "validatedOpportunities": 0,
+      "rejectedOpportunities": 0,
+      "dedupeSkips": 0,
+      "paperTrades": 0,
+      "averageDurationMs": 109.2,
+      "errors": 0
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "runs": 137,
+      "rawOpportunities": 0,
+      "validatedOpportunities": 0,
+      "rejectedOpportunities": 0,
+      "dedupeSkips": 0,
+      "paperTrades": 0,
+      "averageDurationMs": 99.12,
+      "errors": 0
+    }
+  ],
+  "snapshots": {
+    "total": 1036,
+    "uniqueTokens": 153,
+    "uniqueMarkets": 103,
+    "uniqueEvents": 9,
+    "latestCapturedAt": "2026-05-22T16:52:44.335Z",
+    "latestStalenessMs": 2608,
+    "sideCounts": [
+      {
+        "name": "NO",
+        "count": 703
+      },
+      {
+        "name": "YES",
+        "count": 333
+      }
+    ],
+    "sourceCounts": [
+      {
+        "name": "neg_risk_watch",
+        "count": 519
+      },
+      {
+        "name": "within_market_watch",
+        "count": 517
+      }
+    ]
+  },
+  "opportunities": {
+    "statusCounts": [],
+    "rejectionReasons": []
+  },
+  "counts": {
+    "liveTrades": 0,
+    "paperTrades": 0,
+    "paperDedupeSkips": 0
+  },
+  "tokenBlocksByReason": [
+    {
+      "reason": "orderbook_not_found",
+      "count": 76
+    }
+  ],
+  "withinMarketNearMisses": [
+    {
+      "marketKey": "629267",
+      "slug": "will-any-country-leave-nato-by-june-30-2026",
+      "yesTokenId": "96777037696114848391766419517574922007344115888940813113872692623013070089375",
+      "noTokenId": "13087547955543223651509733304346768461677455960394532927963165254525635891443",
+      "askYes": 0.01,
+      "askNo": 0.991,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 80,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "598936",
+      "slug": "will-the-next-uk-election-is-called-by-june-30-2026",
+      "yesTokenId": "13894524895366006997415301184483786855853683638290113202814526270024185311964",
+      "noTokenId": "87815410592295241486154481880824603104260793862757681040997281046628187070656",
+      "askYes": 0.043,
+      "askNo": 0.958,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 81,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "540881",
+      "slug": "gta-vi-released-before-june-2026",
+      "yesTokenId": "8441400852834915183759801017793514978104486628517653995211751018945988243154",
+      "noTokenId": "109289569086508934142323222102974769075074494425163878721602922903101062859033",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 82,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "597964",
+      "slug": "macron-out-by-june-30-2026-273",
+      "yesTokenId": "16201530957950630406397949502319734794139620443510795733205872225099141120819",
+      "noTokenId": "22488814055465212843401871684243737932656687199587127613893702721105723939237",
+      "askYes": 0.005,
+      "askNo": 0.996,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 82,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "610236",
+      "slug": "natoeu-troops-fighting-in-ukraine-in-june-30-2026",
+      "yesTokenId": "107587773577193309872234793913282710128193219302267633047803930965862507239189",
+      "noTokenId": "28896435178698960514118263445469746104354405285937252810253126742266982740239",
+      "askYes": 0.022,
+      "askNo": 0.979,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 83,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "610379",
+      "slug": "ukraine-recognizes-russian-sovereignty-over-its-territory-by-june-30-2026",
+      "yesTokenId": "3990636992955197269726492696316350470613735002003547307529304314694325536205",
+      "noTokenId": "96546182602923845565665333214247145480942442058633439074100378407858539142465",
+      "askYes": 0.014,
+      "askNo": 0.987,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 89,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "692258",
+      "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+      "yesTokenId": "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+      "noTokenId": "65176388692130651396848427090788038285140833850265294793449655516920659740141",
+      "askYes": 0.46,
+      "askNo": 0.541,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 129,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2231205",
+      "slug": "starmer-out-by-may-31-2026",
+      "yesTokenId": "59804740893116830082655722678282357324530422193334657680222344987920273408829",
+      "noTokenId": "97166107287234497412734496054463228470063422608173149121206267858484467672978",
+      "askYes": 0.047,
+      "askNo": 0.954,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 857,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "540844",
+      "slug": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "yesTokenId": "105267568073659068217311993901927962476298440625043565106676088842803600775810",
+      "noTokenId": "91863162118308663069733924043159186005106558783397508844234610341221325526200",
+      "askYes": 0.492,
+      "askNo": 0.509,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 2623,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "544093",
+      "slug": "will-harvey-weinstein-be-sentenced-to-less-than-5-years-in-prison",
+      "yesTokenId": "77166477669007661974218999697956080000161736671391584414287437514245884953047",
+      "noTokenId": "47055352475798285920984907840917431698812931301054546103955312973973172985230",
+      "askYes": 0.046,
+      "askNo": 0.955,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 2809,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "610256",
+      "slug": "will-russia-invade-a-nato-country-by-june-30-2026",
+      "yesTokenId": "98243235802256277307355151946200594769978374926029806468282956710218078263468",
+      "noTokenId": "49090268393791569424317269381401319067383973218195824239464904477008632274751",
+      "askYes": 0.019,
+      "askNo": 0.983,
+      "totalCost": 1.002,
+      "expectedEdge": -0.002,
+      "distanceToThreshold": 0.022,
+      "capturedAtDeltaMs": 77,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "648872",
+      "slug": "us-x-russia-military-clash-by-june-30-2026-249",
+      "yesTokenId": "53718143507722222025482708105484979770434331532873527434664602715154372949986",
+      "noTokenId": "86693363790696751339816050278877877262171227813296099717106615959022457093170",
+      "askYes": 0.015,
+      "askNo": 0.988,
+      "totalCost": 1.003,
+      "expectedEdge": -0.003,
+      "distanceToThreshold": 0.023,
+      "capturedAtDeltaMs": 84,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "544097",
+      "slug": "will-harvey-weinstein-be-sentenced-to-more-than-30-years-in-prison",
+      "yesTokenId": "87036266705700330884624690101790543034325645582506946990660049003915176778714",
+      "noTokenId": "26608800110066527607246656145735191327716408714826934367635297922290688100618",
+      "askYes": 0.044,
+      "askNo": 0.959,
+      "totalCost": 1.003,
+      "expectedEdge": -0.003,
+      "distanceToThreshold": 0.023,
+      "capturedAtDeltaMs": 2811,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "610381",
+      "slug": "ukraine-election-held-by-june-30-2026-465-757",
+      "yesTokenId": "25154489359138656189676305295740648019872226167505418084009121941823239444658",
+      "noTokenId": "15941169207766483447414689399123153340714132932920187738030167528134553690538",
+      "askYes": 0.015,
+      "askNo": 0.99,
+      "totalCost": 1.005,
+      "expectedEdge": -0.005,
+      "distanceToThreshold": 0.025,
+      "capturedAtDeltaMs": 81,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "813505",
+      "slug": "mike-johnson-out-as-speaker-by-june-30",
+      "yesTokenId": "90686053465094516567817655386166124897542061605406870889450915471482281028605",
+      "noTokenId": "98306811672124660042942012455036608757069915973874452428896679210519367135070",
+      "askYes": 0.03,
+      "askNo": 0.975,
+      "totalCost": 1.005,
+      "expectedEdge": -0.005,
+      "distanceToThreshold": 0.025,
+      "capturedAtDeltaMs": 81,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2047653",
+      "slug": "will-russia-capture-kostyantynivka-by-may-31",
+      "yesTokenId": "29809011696982220732063546542308622474802854943333188643218359463829709235487",
+      "noTokenId": "25648885101397690756283800036871749844131890020935661811158571426964687277506",
+      "askYes": 0.02,
+      "askNo": 0.986,
+      "totalCost": 1.006,
+      "expectedEdge": -0.006,
+      "distanceToThreshold": 0.026,
+      "capturedAtDeltaMs": 3000,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "1807912",
+      "slug": "will-any-country-leave-nato-by-december-31-2026",
+      "yesTokenId": "97672112380588518658859221422581522664938121648778223046012006536512218182756",
+      "noTokenId": "111540681317740103557967262084337258765868556750780059317482948108124337120382",
+      "askYes": 0.075,
+      "askNo": 0.932,
+      "totalCost": 1.007,
+      "expectedEdge": -0.007,
+      "distanceToThreshold": 0.027,
+      "capturedAtDeltaMs": 74,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "1068702",
+      "slug": "trump-eliminates-capital-gains-tax-on-crypto-before-2027",
+      "yesTokenId": "38577956202894813911522423295759441226459985692799781876715891336671282746369",
+      "noTokenId": "31239779091556707685216681559343622450417987997527657281659332570836878668226",
+      "askYes": 0.066,
+      "askNo": 0.941,
+      "totalCost": 1.007,
+      "expectedEdge": -0.007,
+      "distanceToThreshold": 0.027,
+      "capturedAtDeltaMs": 80,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2169995",
+      "slug": "microstrategy-sells-any-bitcoin-by-may-31-2026",
+      "yesTokenId": "25714007960293389110960044475283546872601238755063051359394740854408462452120",
+      "noTokenId": "3192689304828767159232889612891719105504357313659012189260030438494464480574",
+      "askYes": 0.1,
+      "askNo": 0.91,
+      "totalCost": 1.01,
+      "expectedEdge": -0.01,
+      "distanceToThreshold": 0.03,
+      "capturedAtDeltaMs": 41,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "824952",
+      "slug": "microstrategy-sells-any-bitcoin-by-december-31-2026",
+      "yesTokenId": "111128191581505463501777127559667396812474366956707382672202929745167742497287",
+      "noTokenId": "99807503632459517030616292055983105381849115736225256331133222076990620978808",
+      "askYes": 0.8,
+      "askNo": 0.21,
+      "totalCost": 1.01,
+      "expectedEdge": -0.01,
+      "distanceToThreshold": 0.03,
+      "capturedAtDeltaMs": 41,
+      "status": "near_miss"
+    }
+  ],
+  "negRiskNearMisses": [
+    {
+      "eventSlug": "what-will-happen-before-gta-vi",
+      "legCount": 8,
+      "executableSum": 3.989,
+      "theoreticalPayout": 7,
+      "expectedGrossEdge": 3.011,
+      "edgeBps": 30110,
+      "capturedAtDeltaMs": 592,
+      "worstLeg": {
+        "tokenId": "92388629082681805622801622703528982922543286352927708208755887536971583436902",
+        "marketSlug": "will-jesus-christ-return-before-gta-vi-665",
+        "ask": 0.52
+      }
+    },
+    {
+      "eventSlug": "will-russia-capture-kostyantynivka-by",
+      "legCount": 4,
+      "executableSum": 2.536,
+      "theoreticalPayout": 3,
+      "expectedGrossEdge": 0.464,
+      "edgeBps": 4640,
+      "capturedAtDeltaMs": 249,
+      "worstLeg": {
+        "tokenId": "25648885101397690756283800036871749844131890020935661811158571426964687277506",
+        "marketSlug": "will-russia-capture-kostyantynivka-by-may-31",
+        "ask": 0.986
+      }
+    },
+    {
+      "eventSlug": "microstrategy-sell-any-bitcoin-in-2025",
+      "legCount": 3,
+      "executableSum": 1.661,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": 0.339,
+      "edgeBps": 3390,
+      "capturedAtDeltaMs": 253,
+      "worstLeg": {
+        "tokenId": "3192689304828767159232889612891719105504357313659012189260030438494464480574",
+        "marketSlug": "microstrategy-sells-any-bitcoin-by-may-31-2026",
+        "ask": 0.91
+      }
+    },
+    {
+      "eventSlug": "starmer-out-in-2025",
+      "legCount": 3,
+      "executableSum": 1.944,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": 0.056,
+      "edgeBps": 560,
+      "capturedAtDeltaMs": 164,
+      "worstLeg": {
+        "tokenId": "97166107287234497412734496054463228470063422608173149121206267858484467672978",
+        "marketSlug": "starmer-out-by-may-31-2026",
+        "ask": 0.954
+      }
+    },
+    {
+      "eventSlug": "2026-nba-champion",
+      "legCount": 4,
+      "executableSum": 2.988,
+      "theoreticalPayout": 3,
+      "expectedGrossEdge": 0.012,
+      "edgeBps": 120,
+      "capturedAtDeltaMs": 234,
+      "worstLeg": {
+        "tokenId": "87330689906224096887625709229706923472442188571057301299963059101866409440363",
+        "marketSlug": "will-the-cleveland-cavaliers-win-the-2026-nba-finals",
+        "ask": 0.981
+      }
+    },
+    {
+      "eventSlug": "2026-nhl-stanley-cup-champion",
+      "legCount": 4,
+      "executableSum": 2.995,
+      "theoreticalPayout": 3,
+      "expectedGrossEdge": 0.005,
+      "edgeBps": 50,
+      "capturedAtDeltaMs": 240,
+      "worstLeg": {
+        "tokenId": "85705323099460694144578384076010167420188174879039498210125410497783582291911",
+        "marketSlug": "will-the-montreal-canadiens-win-the-2026-nhl-stanley-cup",
+        "ask": 0.815
+      }
+    },
+    {
+      "eventSlug": "2026-fifa-world-cup-winner-595",
+      "legCount": 39,
+      "executableSum": 38.01,
+      "theoreticalPayout": 38,
+      "expectedGrossEdge": -0.01,
+      "edgeBps": -100,
+      "capturedAtDeltaMs": 5831,
+      "worstLeg": {
+        "tokenId": "84553189233868837011173802287245466242361930181501918469303092803731514390253",
+        "marketSlug": "will-qatar-win-the-2026-fifa-world-cup",
+        "ask": 0.999
+      }
+    },
+    {
+      "eventSlug": "harvey-weinstein-prison-time",
+      "legCount": 6,
+      "executableSum": 5.042,
+      "theoreticalPayout": 5,
+      "expectedGrossEdge": -0.042,
+      "edgeBps": -420,
+      "capturedAtDeltaMs": 401,
+      "worstLeg": {
+        "tokenId": "103705222348348023632358209307161171933864556870678885035120650593331360918837",
+        "marketSlug": "will-harvey-weinstein-be-sentenced-to-between-5-and-10-years-in-prison",
+        "ask": 0.986
+      }
+    },
+    {
+      "eventSlug": "hyperliquid-airdop-by",
+      "legCount": 3,
+      "executableSum": 2.14,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": -0.14,
+      "edgeBps": -1400,
+      "capturedAtDeltaMs": 157,
+      "worstLeg": {
+        "tokenId": "85487630954297906857427842745787851948079273488527800245673979479655643658539",
+        "marketSlug": "will-hyperliquid-perform-an-airdrop-by-december-31-2026",
+        "ask": 0.82
+      }
+    }
+  ],
+  "warnings": [
+    "NO_RAW_OPPORTUNITIES_AFTER_60_CYCLES: scanner coverage may be too narrow."
+  ]
+}

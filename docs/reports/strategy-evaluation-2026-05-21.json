@@ -1,0 +1,597 @@
+{
+  "generatedAt": "2026-05-21T20:11:14.410Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\trades.db",
+  "schema": {
+    "opportunities": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "raw_edge",
+        "executable_edge",
+        "status",
+        "reason",
+        "token_ids",
+        "timestamp",
+        "fillable_usd",
+        "min_leg_depth_usd",
+        "leg_count",
+        "executable_sum",
+        "fee_adjusted_edge"
+      ]
+    },
+    "opportunity_legs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "opportunity_id",
+        "strategy",
+        "slug",
+        "market_id",
+        "question",
+        "token_id",
+        "side",
+        "raw_yes_price",
+        "average_fill_price",
+        "max_fillable_usd",
+        "best_bid",
+        "best_ask",
+        "spread",
+        "fillable",
+        "reason",
+        "leg_index",
+        "timestamp"
+      ]
+    },
+    "orderbook_snapshots": {
+      "exists": true,
+      "columns": [
+        "id",
+        "token_id",
+        "market_slug",
+        "opportunity_id",
+        "source",
+        "bids_json",
+        "asks_json",
+        "best_bid",
+        "best_ask",
+        "checksum",
+        "captured_at"
+      ]
+    },
+    "scanner_runs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "timestamp",
+        "raw_opportunities",
+        "validated_opportunities",
+        "rejected_opportunities",
+        "paper_trades",
+        "duration_ms",
+        "error"
+      ]
+    },
+    "paper_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "inflation_flagged",
+        "arb_class",
+        "timestamp",
+        "resolved_at",
+        "opportunity_id",
+        "resolution_reason"
+      ]
+    },
+    "scan_cycles": {
+      "exists": true,
+      "columns": [
+        "id",
+        "timestamp",
+        "success",
+        "opportunities",
+        "paper_trades",
+        "skipped_duplicates",
+        "rejected_opportunities",
+        "error"
+      ]
+    },
+    "paper_fire_dedup": {
+      "exists": true,
+      "columns": [
+        "dedupe_key",
+        "strategy",
+        "event_slug",
+        "fired_at"
+      ]
+    },
+    "live_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "actual_fill_price",
+        "fill_status",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "exit_stamping_suspect",
+        "arb_class",
+        "leg_group_id",
+        "leg_index",
+        "timestamp",
+        "resolved_at"
+      ]
+    }
+  },
+  "runSummary": {
+    "startTime": "2026-05-19T21:12:18.312Z",
+    "endTime": "2026-05-21T16:02:10.579Z",
+    "durationHours": 42.8312,
+    "strategiesFound": [
+      "neg_risk_bracket_arb"
+    ],
+    "scanCycles": {
+      "available": true,
+      "value": {
+        "total": 3152,
+        "successful": 3152,
+        "failed": 0,
+        "totalOpportunities": 20,
+        "totalPaperTrades": 6,
+        "totalRejectedOpportunities": 19,
+        "totalSkippedDuplicates": 19
+      }
+    },
+    "liveTradesCount": {
+      "available": true,
+      "value": 0
+    }
+  },
+  "funnel": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawFound": 325,
+      "currentRawFound": 0,
+      "validated": 1,
+      "rejected": 324,
+      "paperFired": 1,
+      "dedupeSkipped": 19,
+      "validatedRate": 0.0031,
+      "rejectedRate": 0.9969,
+      "paperFiredRate": 0.0031,
+      "dedupeSkippedRate": 0.0585
+    }
+  ],
+  "rejectionReasons": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 305
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "duplicate_within_cooldown",
+      "count": 19
+    }
+  ],
+  "edgeQuality": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawEdgeBps": {
+        "avg": 46.68,
+        "median": 40,
+        "min": 5,
+        "max": 105
+      },
+      "executableEdgeBps": {
+        "avg": -230.62,
+        "median": -160,
+        "min": -1230,
+        "max": 80
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": 80,
+          "median": 80,
+          "min": 80,
+          "max": 80
+        }
+      }
+    }
+  ],
+  "capacity": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 665.34,
+          "median": 665.34,
+          "min": 665.34,
+          "max": 665.34
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 110.89,
+          "median": 110.89,
+          "min": 110.89,
+          "max": 110.89
+        }
+      }
+    }
+  ],
+  "topByExecutableEdge": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 20,
+      "executableEdgeBps": 80,
+      "fillableUsd": 665.34,
+      "minLegDepthUsd": 110.89,
+      "legCount": 6,
+      "executableSum": 4.992,
+      "executableEdgeTimesFillableUsd": 53227.2,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779295628775
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 75,
+      "executableEdgeBps": -50,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779256527488
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 75,
+      "executableEdgeBps": -50,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779256519486
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 40,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779259107520
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 40,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779259098877
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 50,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779258117530
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 50,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779258108881
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 50,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779258087498
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 50,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779258078897
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257937489
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257928878
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257907495
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257898861
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257877513
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257868890
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257847518
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257838872
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257817520
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257808863
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "harvey-weinstein-prison-time",
+      "rawEdgeBps": 45,
+      "executableEdgeBps": -140,
+      "fillableUsd": null,
+      "minLegDepthUsd": null,
+      "legCount": null,
+      "executableSum": null,
+      "executableEdgeTimesFillableUsd": null,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779257787512
+    }
+  ],
+  "topByExecutableEdgeTimesFillableUsd": {
+    "available": true,
+    "value": [
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "harvey-weinstein-prison-time",
+        "rawEdgeBps": 20,
+        "executableEdgeBps": 80,
+        "fillableUsd": 665.34,
+        "minLegDepthUsd": 110.89,
+        "legCount": 6,
+        "executableSum": 4.992,
+        "executableEdgeTimesFillableUsd": 53227.2,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779295628775
+      }
+    ]
+  },
+  "timeAnalysis": {
+    "opportunitiesPerHour": 7.59,
+    "validatedPerHour": 0.02,
+    "rejectedPerHour": 7.56,
+    "hourly": [
+      {
+        "hour": "2026-05-19T21",
+        "opportunities": 41,
+        "validated": 0,
+        "rejected": 41
+      },
+      {
+        "hour": "2026-05-20T05",
+        "opportunities": 40,
+        "validated": 0,
+        "rejected": 40
+      },
+      {
+        "hour": "2026-05-20T06",
+        "opportunities": 224,
+        "validated": 0,
+        "rejected": 224
+      },
+      {
+        "hour": "2026-05-20T16",
+        "opportunities": 20,
+        "validated": 1,
+        "rejected": 19
+      }
+    ]
+  },
+  "paperTrades": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "count": 153,
+      "unresolved": 153,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    }
+  ],
+  "dataQualityWarnings": [
+    "147 paper trade(s) have no opportunity_id link"
+  ],
+  "verdicts": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    }
+  ]
+}

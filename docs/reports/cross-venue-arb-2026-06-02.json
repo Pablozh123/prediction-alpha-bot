@@ -1,0 +1,110 @@
+{
+  "reportDate": "2026-06-02",
+  "generatedAt": "2026-08-07T16:56:35.608Z",
+  "configPath": "C:\\Users\\chole\\AppData\\Local\\Temp\\crossvenue-runner-live-feed-id-6KZgBq\\crossVenuePairs.json",
+  "autoDiscover": false,
+  "dryRun": true,
+  "minNetCents": 0.5,
+  "feesCents": {},
+  "summary": {
+    "pairsScanned": 1,
+    "opportunities": 1,
+    "priceSpreads": 0,
+    "rejectedPairs": 0
+  },
+  "orderbookReads": {
+    "kalshi": {
+      "reads": 0,
+      "dedupedReads": 0,
+      "cacheHits": 0,
+      "liveWatchedHits": 0,
+      "websocketHits": 0,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 0,
+      "cacheUnavailable": 0,
+      "restFetches": 0,
+      "restWrites": 0
+    },
+    "polymarket": {
+      "reads": 0,
+      "dedupedReads": 0,
+      "cacheHits": 0,
+      "liveWatchedHits": 0,
+      "websocketHits": 0,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 0,
+      "cacheUnavailable": 0,
+      "restFetches": 0,
+      "restWrites": 0
+    },
+    "total": {
+      "reads": 0,
+      "dedupedReads": 0,
+      "cacheHits": 0,
+      "liveWatchedHits": 0,
+      "websocketHits": 0,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 0,
+      "cacheUnavailable": 0,
+      "restFetches": 0,
+      "restWrites": 0
+    }
+  },
+  "discoveryResult": null,
+  "pairs": [
+    {
+      "id": "manual-same-market",
+      "title": "Manual same market",
+      "outcomeLabel": "YES",
+      "enabled": true,
+      "priority": false,
+      "verified": false,
+      "expectedResolutionAt": 1782777600000,
+      "kalshi": {
+        "ticker": "KXCONFIG"
+      },
+      "polymarket": {
+        "slug": "poly-config",
+        "yesTokenId": "yes-config",
+        "noTokenId": "no-config"
+      }
+    }
+  ],
+  "opportunities": [
+    {
+      "pairId": "manual-same-market",
+      "title": "Manual same market",
+      "outcomeLabel": "YES",
+      "slug": "poly-config",
+      "buyYesVenue": "kalshi",
+      "buyNoVenue": "polymarket",
+      "grossCents": 3.1,
+      "feeCents": 0,
+      "netCents": 3.1,
+      "roiBps": 319.59,
+      "totalTopOfBookCost": 0.97,
+      "executableSize": 10,
+      "maxProfitDollars": 0.31,
+      "reason": "cross_venue_yes_no_below_one",
+      "yesLeg": {
+        "venue": "kalshi",
+        "side": "YES",
+        "identifier": "KXCONFIG",
+        "bestAsk": 0.47,
+        "averageFillPrice": 0.47
+      },
+      "noLeg": {
+        "venue": "polymarket",
+        "side": "NO",
+        "identifier": "no-config",
+        "bestAsk": 0.5,
+        "averageFillPrice": 0.5
+      }
+    }
+  ],
+  "priceSpreads": [],
+  "rejectedPairs": []
+}

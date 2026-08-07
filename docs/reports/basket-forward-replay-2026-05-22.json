@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-05-22T14:56:35.706Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\trades.db",
+  "mode": "linked",
+  "maxSnapshotStalenessMs": 600000,
+  "rows": [
+    {
+      "mode": "linked",
+      "status": "replayed",
+      "reason": "linked_replay",
+      "opportunityId": "63e7ddb2-878d-432f-9ecf-d652a9a5b8fd",
+      "eventSlug": "harvey-weinstein-prison-time",
+      "legCount": 6,
+      "entryCapturedAt": 1779295628775,
+      "latestExitCapturedAt": 1779379059711,
+      "basketSizeShares": 1,
+      "basketCostUsd": 4.992,
+      "basketPayoutUsd": 5,
+      "basketProfitUsd": 0.008,
+      "edgeBps": 80,
+      "roiBps": 16.03,
+      "maxPositiveBasketShares": 69.109022,
+      "maxPositiveBasketCostUsd": 345.545112,
+      "latestBidExitUsd": 4.964,
+      "latestMarkToBidPnlUsd": -0.028,
+      "latestMarkToBidRoiBps": -56.09
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "replayed": 1,
+    "skipped": 0,
+    "linked": 1,
+    "unlinked": 0
+  }
+}

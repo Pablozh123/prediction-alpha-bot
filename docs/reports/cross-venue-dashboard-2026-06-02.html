@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cross-Venue Arb Dashboard - 2026-06-02</title>
+<style>
+
+:root {
+  color-scheme: light;
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --ink: #14171f;
+  --muted: #697080;
+  --line: #dde2ea;
+  --accent: #0f766e;
+  --accent-soft: #d9f3ef;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.shell {
+  width: min(1440px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 24px 0 40px;
+}
+.topbar {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+h1, h2, p { margin: 0; }
+h1 { font-size: 26px; letter-spacing: 0; }
+h2 { font-size: 16px; margin-bottom: 12px; }
+.topbar p, .card span, .card small, .empty, .notes p { color: var(--muted); }
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+input, button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 6px;
+  min-height: 36px;
+}
+input {
+  width: min(360px, 100%);
+  padding: 0 12px;
+}
+button {
+  padding: 0 12px;
+  cursor: pointer;
+}
+button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: #064e46;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.card, .panel, .notes {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.card {
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+.card strong { font-size: 21px; }
+.panel, .notes {
+  padding: 14px;
+  margin-top: 12px;
+}
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+th, td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f0f3f7;
+  color: #424a59;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+tr:last-child td { border-bottom: 0; }
+.empty {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+[hidden] { display: none !important; }
+@media (max-width: 900px) {
+  .topbar { display: block; }
+  .controls { justify-content: flex-start; margin-top: 12px; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+</style>
+</head>
+<body>
+<main class="shell">
+<section class="topbar">
+<div>
+<h1>Cross-Venue Arb Dashboard</h1>
+<p>2026-08-07T16:56:35.608Z | paper-only | read-only market data</p>
+</div>
+<div class="controls">
+<input id="search" type="search" placeholder="Filter markets, tickers, slugs">
+<button type="button" data-filter="all" class="active">All</button>
+<button type="button" data-filter="arb">Arbs</button>
+<button type="button" data-filter="spread">Spreads</button>
+<button type="button" data-filter="match">Matches</button>
+<button type="button" data-filter="near">Near matches</button>
+</div>
+</section>
+<section class="cards">
+<article class="card"><span>Arbs</span><strong>1</strong><small>true YES+NO cross-venue candidates</small></article>
+<article class="card"><span>Spreads</span><strong>0</strong><small>same-side price differences</small></article>
+<article class="card"><span>Matched</span><strong>1</strong><small>pairs scanned for books</small></article>
+<article class="card"><span>Cache</span><strong>0/0</strong><small>0 websocket hits, 0 live-watched, 0 REST fetches</small></article>
+<article class="card"><span>Discovery</span><strong>manual</strong><small>Kalshi / Polymarket markets read</small></article>
+<article class="card"><span>Mode</span><strong>dry-run</strong><small>paper-only; no orders</small></article>
+</section>
+<section class="panel" data-section-kind="arb">
+<h2>Arbitrage Opportunities</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>Pair</th><th>Buy YES</th><th>Buy NO</th><th>Net</th><th>ROI</th><th>Size</th><th>Profit</th></tr>
+</thead>
+<tbody>
+<tr class="filter-row" data-kind="arb" data-text="Manual same market YES poly-config kalshi polymarket"><td>Manual same market / YES</td><td>kalshi @ 0.4700</td><td>polymarket @ 0.5000</td><td>3.10c</td><td>319.59 bps</td><td>10.00</td><td>$0.31</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" data-section-kind="spread">
+<h2>Price Differences</h2>
+<p class="empty">No same-side price differences found.</p>
+</section>
+<section class="panel" data-section-kind="match">
+<h2>Matched Pairs</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>Pair</th><th>Kalshi</th><th>Polymarket</th><th>Match</th><th>Reason</th></tr>
+</thead>
+<tbody>
+<tr class="filter-row" data-kind="match" data-text="Manual same market KXCONFIG poly-config"><td>Manual same market</td><td>KXCONFIG</td><td>poly-config</td><td>manual</td><td>config</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel" data-section-kind="near">
+<h2>Discovery Near Matches</h2>
+<p class="empty">No near-match diagnostics available.</p>
+</section>
+<section class="panel" data-section-kind="rejected">
+<h2>Rejected Pairs</h2>
+<p class="empty">No rejected scanned pairs.</p>
+</section>
+<section class="notes">
+<h2>Safety</h2>
+<p>No live trading, no orders, no CLOB client, no wallets, no private keys. Price spreads are directional signals, not risk-free arbitrage.</p>
+</section>
+</main>
+<script>
+
+const search = document.querySelector("#search");
+const buttons = [...document.querySelectorAll("[data-filter]")];
+let activeFilter = "all";
+
+function applyFilters() {
+  const query = (search?.value || "").trim().toLowerCase();
+  for (const section of document.querySelectorAll("[data-section-kind]")) {
+    const sectionKind = section.getAttribute("data-section-kind") || "";
+    const sectionMatchesFilter =
+      activeFilter === "all" || sectionKind === activeFilter;
+    const rows = [...section.querySelectorAll(".filter-row")];
+    let visibleRows = 0;
+
+    for (const row of rows) {
+      const text = (row.getAttribute("data-text") || "").toLowerCase();
+      const visible = sectionMatchesFilter && (!query || text.includes(query));
+      row.hidden = !visible;
+      if (visible) visibleRows += 1;
+    }
+
+    section.hidden =
+      !sectionMatchesFilter || (rows.length > 0 && visibleRows === 0);
+  }
+}
+
+for (const button of buttons) {
+  button.addEventListener("click", () => {
+    activeFilter = button.getAttribute("data-filter") || "all";
+    for (const other of buttons) other.classList.toggle("active", other === button);
+    applyFilters();
+  });
+}
+
+search?.addEventListener("input", applyFilters);
+applyFilters();
+
+</script>
+</body>
+</html>

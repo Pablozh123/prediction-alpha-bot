@@ -1,0 +1,937 @@
+{
+  "generatedAt": "2026-05-29T21:02:30.441Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\forward-clean-2026-05-23.db",
+  "schema": {
+    "opportunities": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "raw_edge",
+        "executable_edge",
+        "fillable_usd",
+        "min_leg_depth_usd",
+        "leg_count",
+        "executable_sum",
+        "fee_adjusted_edge",
+        "basket_size_shares",
+        "basket_cost_usd",
+        "basket_payout_usd",
+        "basket_profit_usd",
+        "edge_bps",
+        "roi_bps",
+        "max_positive_basket_shares",
+        "max_positive_basket_cost_usd",
+        "status",
+        "reason",
+        "token_ids",
+        "timestamp"
+      ]
+    },
+    "opportunity_legs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "opportunity_id",
+        "strategy",
+        "slug",
+        "market_id",
+        "question",
+        "token_id",
+        "side",
+        "raw_yes_price",
+        "average_fill_price",
+        "max_fillable_usd",
+        "best_bid",
+        "best_ask",
+        "spread",
+        "fillable",
+        "reason",
+        "leg_index",
+        "timestamp"
+      ]
+    },
+    "orderbook_snapshots": {
+      "exists": true,
+      "columns": [
+        "id",
+        "token_id",
+        "market_slug",
+        "event_slug",
+        "market_id",
+        "side",
+        "strategy_source",
+        "opportunity_id",
+        "source",
+        "bids_json",
+        "asks_json",
+        "best_bid",
+        "best_ask",
+        "checksum",
+        "captured_at"
+      ]
+    },
+    "scanner_runs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "timestamp",
+        "raw_opportunities",
+        "validated_opportunities",
+        "rejected_opportunities",
+        "dedupe_skips",
+        "paper_trades",
+        "duration_ms",
+        "error"
+      ]
+    },
+    "paper_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "opportunity_id",
+        "side",
+        "size_usd",
+        "size_shares",
+        "entry_price",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "inflation_flagged",
+        "resolution_reason",
+        "arb_class",
+        "timestamp",
+        "resolved_at"
+      ]
+    },
+    "scan_cycles": {
+      "exists": true,
+      "columns": [
+        "id",
+        "timestamp",
+        "success",
+        "opportunities",
+        "paper_trades",
+        "skipped_duplicates",
+        "rejected_opportunities",
+        "error"
+      ]
+    },
+    "paper_fire_dedup": {
+      "exists": true,
+      "columns": [
+        "dedupe_key",
+        "strategy",
+        "event_slug",
+        "fired_at"
+      ]
+    },
+    "paper_dedupe_skips": {
+      "exists": true,
+      "columns": [
+        "id",
+        "dedupe_key",
+        "strategy",
+        "slug",
+        "threshold",
+        "token_ids",
+        "previous_fire_at",
+        "skipped_at",
+        "cooldown_ms"
+      ]
+    },
+    "live_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "actual_fill_price",
+        "fill_status",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "exit_stamping_suspect",
+        "arb_class",
+        "leg_group_id",
+        "leg_index",
+        "timestamp",
+        "resolved_at"
+      ]
+    }
+  },
+  "runSummary": {
+    "startTime": "2026-05-23T15:46:02.977Z",
+    "endTime": "2026-05-23T15:48:37.532Z",
+    "durationHours": 0.0429,
+    "strategiesFound": [
+      "neg_risk_bracket_arb",
+      "within_market_yes_no_arb"
+    ],
+    "scanCycles": {
+      "available": true,
+      "value": {
+        "total": 6,
+        "successful": 6,
+        "failed": 0,
+        "totalOpportunities": 3128,
+        "totalPaperTrades": 18,
+        "totalRejectedOpportunities": 300,
+        "totalSkippedDuplicates": 16
+      }
+    },
+    "liveTradesCount": {
+      "available": true,
+      "value": 0
+    }
+  },
+  "funnel": [
+    {
+      "strategy": "within_market_yes_no_arb",
+      "rawFound": 3108,
+      "currentRawFound": 0,
+      "validated": 0,
+      "rejected": 300,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 0.0965,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawFound": 20,
+      "currentRawFound": 0,
+      "validated": 4,
+      "rejected": 0,
+      "paperFired": 4,
+      "dedupeSkipped": 16,
+      "validatedRate": 0.2,
+      "rejectedRate": 0,
+      "paperFiredRate": 0.2,
+      "dedupeSkippedRate": 0.8
+    }
+  ],
+  "rejectionReasons": [
+    {
+      "strategy": "within_market_yes_no_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 300
+    }
+  ],
+  "edgeQuality": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawEdgeBps": {
+        "avg": 9992.5,
+        "median": 4325,
+        "min": 410,
+        "max": 30910
+      },
+      "executableEdgeBps": {
+        "avg": 9992.5,
+        "median": 4325,
+        "min": 410,
+        "max": 30910
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": 9992.5,
+          "median": 4325,
+          "min": 410,
+          "max": 30910
+        }
+      }
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "rawEdgeBps": {
+        "avg": -9.5,
+        "median": 0,
+        "min": -70,
+        "max": 0
+      },
+      "executableEdgeBps": {
+        "avg": -123.03,
+        "median": -100,
+        "min": -700,
+        "max": -10
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": -123.03,
+          "median": -100,
+          "min": -700,
+          "max": -10
+        }
+      }
+    }
+  ],
+  "capacity": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 613730.99,
+          "median": 283205.39755,
+          "min": 75382.9584,
+          "max": 1813130.2197
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 179630.62,
+          "median": 47650.00535,
+          "min": 18845.7396,
+          "max": 604376.7399
+        }
+      }
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 428973.38,
+          "median": 92567.33679999999,
+          "min": 2890.7756,
+          "max": 6517854.72308
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 214486.69,
+          "median": 46283.668399999995,
+          "min": 1445.3878,
+          "max": 3258927.36154
+        }
+      }
+    }
+  ],
+  "topByExecutableEdge": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30910,
+      "executableEdgeBps": 30910,
+      "fillableUsd": 448817.2208,
+      "minLegDepthUsd": 56102.1526,
+      "legCount": 8,
+      "executableSum": 3.909,
+      "executableEdgeTimesFillableUsd": 13872940294.93,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779551193123
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 4940,
+      "executableEdgeBps": 4940,
+      "fillableUsd": 75382.9584,
+      "minLegDepthUsd": 18845.7396,
+      "legCount": 4,
+      "executableSum": 2.506,
+      "executableEdgeTimesFillableUsd": 372391814.5,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779551193639
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "microstrategy-sell-any-bitcoin-in-2025",
+      "rawEdgeBps": 3710,
+      "executableEdgeBps": 3710,
+      "fillableUsd": 117593.5743,
+      "minLegDepthUsd": 39197.8581,
+      "legCount": 3,
+      "executableSum": 1.629,
+      "executableEdgeTimesFillableUsd": 436272160.65,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779551193833
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "starmer-out-in-2025",
+      "rawEdgeBps": 410,
+      "executableEdgeBps": 410,
+      "fillableUsd": 1813130.2197,
+      "minLegDepthUsd": 604376.7399,
+      "legCount": 3,
+      "executableSum": 1.959,
+      "executableEdgeTimesFillableUsd": 743383390.08,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779551194051
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 300946.01524,
+      "minLegDepthUsd": 150473.00762,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -3009460.15,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551314062
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "starmer-out-by-may-31-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 647056.11514,
+      "minLegDepthUsd": 323528.05757,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -6470561.15,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313988
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "placeholder-6-announced-as-next-james-bond-114",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 15759.20502,
+      "minLegDepthUsd": 7879.60251,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -157592.05,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313900
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 16164.7191,
+      "minLegDepthUsd": 8082.35955,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -161647.19,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313823
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "netanyahu-out-by-may-31",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 725831.062,
+      "minLegDepthUsd": 362915.531,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -7258310.62,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313750
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "netanyahu-out-by-june-30-383-244-575",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 572618.51806,
+      "minLegDepthUsd": 286309.25903,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -5726185.18,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313669
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "natoeu-troops-fighting-in-ukraine-in-june-30-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 220564.52692,
+      "minLegDepthUsd": 110282.26346,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -2205645.27,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313590
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 192283.032,
+      "minLegDepthUsd": 96141.516,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -1922830.32,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313469
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "macron-out-by-june-30-2026-273",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 228379.91918,
+      "minLegDepthUsd": 114189.95959,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -2283799.19,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313394
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "jeffrey-epstein-foul-play-confirmed-by-december-31-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 174911.36064,
+      "minLegDepthUsd": 87455.68032,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -1749113.61,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313324
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "james-collier-announced-as-next-james-bond",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 5248.92582,
+      "minLegDepthUsd": 2624.46291,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -52489.26,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313249
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "gta-vi-released-before-june-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 189446.7636,
+      "minLegDepthUsd": 94723.3818,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -1894467.64,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551313159
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 386678.45776,
+      "minLegDepthUsd": 193339.22888,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -3866784.58,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551284066
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "starmer-out-by-may-31-2026",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 647056.11514,
+      "minLegDepthUsd": 323528.05757,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -6470561.15,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551283984
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "placeholder-6-announced-as-next-james-bond-114",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 15759.20502,
+      "minLegDepthUsd": 7879.60251,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -157592.05,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551283885
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+      "rawEdgeBps": -10,
+      "executableEdgeBps": -10,
+      "fillableUsd": 16164.7191,
+      "minLegDepthUsd": 8082.35955,
+      "legCount": 2,
+      "executableSum": 1.001,
+      "executableEdgeTimesFillableUsd": -161647.19,
+      "status": "rejected",
+      "reason": "non_positive_executable_edge",
+      "timestamp": 1779551283792
+    }
+  ],
+  "topByExecutableEdgeTimesFillableUsd": {
+    "available": true,
+    "value": [
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30910,
+        "executableEdgeBps": 30910,
+        "fillableUsd": 448817.2208,
+        "minLegDepthUsd": 56102.1526,
+        "legCount": 8,
+        "executableSum": 3.909,
+        "executableEdgeTimesFillableUsd": 13872940294.93,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779551193123
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "starmer-out-in-2025",
+        "rawEdgeBps": 410,
+        "executableEdgeBps": 410,
+        "fillableUsd": 1813130.2197,
+        "minLegDepthUsd": 604376.7399,
+        "legCount": 3,
+        "executableSum": 1.959,
+        "executableEdgeTimesFillableUsd": 743383390.08,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779551194051
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "microstrategy-sell-any-bitcoin-in-2025",
+        "rawEdgeBps": 3710,
+        "executableEdgeBps": 3710,
+        "fillableUsd": 117593.5743,
+        "minLegDepthUsd": 39197.8581,
+        "legCount": 3,
+        "executableSum": 1.629,
+        "executableEdgeTimesFillableUsd": 436272160.65,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779551193833
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "will-russia-capture-kostyantynivka-by",
+        "rawEdgeBps": 4940,
+        "executableEdgeBps": 4940,
+        "fillableUsd": 75382.9584,
+        "minLegDepthUsd": 18845.7396,
+        "legCount": 4,
+        "executableSum": 2.506,
+        "executableEdgeTimesFillableUsd": 372391814.5,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779551193639
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": 0,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551165040
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551194331
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551223220
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551253219
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551283228
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "james-collier-announced-as-next-james-bond",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 5248.92582,
+        "minLegDepthUsd": 2624.46291,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -52489.26,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551313249
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": 0,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551167068
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551194932
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551223827
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551253801
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551283885
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "placeholder-6-announced-as-next-james-bond-114",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 15759.20502,
+        "minLegDepthUsd": 7879.60251,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -157592.05,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551313900
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+        "rawEdgeBps": 0,
+        "executableEdgeBps": -10,
+        "fillableUsd": 16164.7191,
+        "minLegDepthUsd": 8082.35955,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -161647.19,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551166751
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 16164.7191,
+        "minLegDepthUsd": 8082.35955,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -161647.19,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551194844
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 16164.7191,
+        "minLegDepthUsd": 8082.35955,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -161647.19,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551223749
+      },
+      {
+        "strategy": "within_market_yes_no_arb",
+        "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+        "rawEdgeBps": -10,
+        "executableEdgeBps": -10,
+        "fillableUsd": 16164.7191,
+        "minLegDepthUsd": 8082.35955,
+        "legCount": 2,
+        "executableSum": 1.001,
+        "executableEdgeTimesFillableUsd": -161647.19,
+        "status": "rejected",
+        "reason": "non_positive_executable_edge",
+        "timestamp": 1779551253733
+      }
+    ]
+  },
+  "timeAnalysis": {
+    "opportunitiesPerHour": 7086.25,
+    "validatedPerHour": 93.24,
+    "rejectedPerHour": 6993.01,
+    "hourly": [
+      {
+        "hour": "2026-05-23T15",
+        "opportunities": 304,
+        "validated": 4,
+        "rejected": 300
+      }
+    ]
+  },
+  "paperTrades": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "count": 18,
+      "unresolved": 18,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    }
+  ],
+  "dataQualityWarnings": [],
+  "verdicts": [
+    {
+      "strategy": "within_market_yes_no_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "verdict": "CONTINUE_TESTING",
+      "reason": "Validated sample has positive executable edge; keep collecting paper data."
+    }
+  ]
+}

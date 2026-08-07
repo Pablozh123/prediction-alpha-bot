@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-05-20T14:45:07.156Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\trades.db",
+  "networkMode": "online",
+  "local": {
+    "dbExists": true,
+    "opportunities": 305,
+    "paperTrades": 147,
+    "unlinkedPaperTrades": 147,
+    "orderbookSnapshotTable": true,
+    "orderbookSnapshots": 12,
+    "opportunityLegs": 0,
+    "sampleTokenId": "86488478623677188352872801318507143761188967461168408688159600382919967378486"
+  },
+  "checks": [
+    {
+      "source": "Polygon blockchain / settlement data",
+      "status": "partial",
+      "evidence": "On-chain data can show fills, transfers, balances, and resolution/settlement.",
+      "backtestUse": "Resolution and executed-trade verification.",
+      "limitation": "Resting CLOB bids/asks that never filled are off-chain and cannot be reconstructed from chain state alone."
+    },
+    {
+      "source": "Local orderbook_snapshots",
+      "status": "available",
+      "evidence": "12 snapshot row(s) found.",
+      "backtestUse": "Forward replay after snapshot collection starts.",
+      "limitation": "Snapshots only cover time after the collector is enabled; they do not backfill old books."
+    },
+    {
+      "source": "Local paper journal",
+      "status": "partial",
+      "evidence": "147 paper trade(s), 147 without opportunity link.",
+      "backtestUse": "Local scanner behavior and legacy diagnostics.",
+      "limitation": "Unlinked paper trades cannot prove a validated executable opportunity."
+    },
+    {
+      "source": "Gamma metadata API",
+      "status": "available",
+      "evidence": "1 active event(s) returned in smoke test.",
+      "backtestUse": "Market discovery and token metadata.",
+      "limitation": "Useful for market metadata; not a historical orderbook archive."
+    },
+    {
+      "source": "Polymarket Data API activity",
+      "status": "skipped",
+      "evidence": "No public proxy address supplied via --address or POLYMARKET_RESEARCH_ADDRESS.",
+      "backtestUse": "Historical trade-print proxy research.",
+      "limitation": "Activity is wallet-scoped; it does not expose full historical orderbook depth."
+    },
+    {
+      "source": "Current CLOB orderbook endpoint",
+      "status": "available",
+      "evidence": "38 bid level(s), 50 ask level(s), bestBid=0.22, bestAsk=0.221.",
+      "backtestUse": "Current and forward paper validation.",
+      "limitation": "The endpoint returns current depth, not historical snapshots."
+    }
+  ],
+  "verdict": {
+    "trueHistoricalOrderbookBacktest": "not_ready",
+    "tradePrintProxyBacktest": "not_ready",
+    "forwardOrderbookReplay": "ready_to_collect"
+  }
+}

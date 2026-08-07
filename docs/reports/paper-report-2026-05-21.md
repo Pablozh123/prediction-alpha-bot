@@ -1,59 +1,63 @@
-# Paper Run Report - 2026-05-20
+# Paper Run Report - 2026-05-21
 
 Database: `C:\Users\chole\Projects\prediction-alpha-bot\logs\trades.db`
 
 ## Summary
 
-- Scan cycles total: 7
-- Successful scan cycles: 7
+- Scan cycles total: 3152
+- Successful scan cycles: 3152
 - Failed scan cycles: 0
-- Dedupe skips: 0
-- Average raw_edge: 0.004826
-- Average executable_edge: -0.023164
-- Average fillable_usd: n/a
-- Average min_leg_depth_usd: n/a
-- Average fee_adjusted_edge: n/a
+- Dedupe skips: 19
+- Average raw_edge: 0.004668
+- Average executable_edge: -0.023062
+- Average fillable_usd: 665.340000
+- Average min_leg_depth_usd: 110.890000
+- Average fee_adjusted_edge: 0.008000
 - Paper trades without validation link: 147
 
 ## Raw Opportunities By Strategy
 
 | Strategy | Count |
 | --- | ---: |
-| neg_risk_bracket_arb | 305 |
+| neg_risk_bracket_arb | 325 |
 
 ## Validated Opportunities By Strategy
 
-_None_
+| Strategy | Count |
+| --- | ---: |
+| neg_risk_bracket_arb | 1 |
 
 ## Rejected Opportunities By Strategy
 
 | Strategy | Count |
 | --- | ---: |
-| neg_risk_bracket_arb | 305 |
+| neg_risk_bracket_arb | 324 |
 
 ## Rejection Reasons
 
 | Reason | Count |
 | --- | ---: |
 | non_positive_executable_edge | 305 |
+| duplicate_within_cooldown | 19 |
 
 ## Paper Trades By Strategy
 
 | Strategy | Count |
 | --- | ---: |
-| neg_risk_bracket_arb | 147 |
+| neg_risk_bracket_arb | 153 |
 
 ## Scanner Runs By Strategy
 
 | Strategy | Count |
 | --- | ---: |
-| neg_risk_bracket_arb | 5 |
-| within_market_yes_no_arb | 5 |
+| neg_risk_bracket_arb | 3150 |
+| within_market_yes_no_arb | 3150 |
 
 ## Top 20 Opportunities By Executable Edge
 
 | Strategy | Slug | Raw Edge | Executable Edge | Fillable USD | Min Leg Depth USD | Leg Count | Executable Sum | Fee Adjusted Edge | Status | Reason | Timestamp |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: |
+| neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.002000 | 0.008000 | 665.340000 | 110.890000 | 6.000000 | 4.992000 | 0.008000 | paper_fired | paper_trade_recorded | 1779295628775 |
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.007500 | -0.005000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779256527488 |
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.007500 | -0.005000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779256519486 |
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.004000 | -0.014000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779259107520 |
@@ -73,7 +77,6 @@ _None_
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.004500 | -0.014000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779257817520 |
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.004500 | -0.014000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779257808863 |
 | neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.004500 | -0.014000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779257787512 |
-| neg_risk_bracket_arb | harvey-weinstein-prison-time | 0.005000 | -0.015000 | n/a | n/a | n/a | n/a | n/a | rejected | non_positive_executable_edge | 1779259347525 |
 
 ## Validation Warning
 

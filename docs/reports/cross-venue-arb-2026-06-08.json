@@ -1,0 +1,243 @@
+{
+  "reportDate": "2026-06-08",
+  "generatedAt": "2026-06-08T23:58:34.019Z",
+  "configPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\config\\crossVenuePairs.json",
+  "autoDiscover": false,
+  "dryRun": true,
+  "minNetCents": 0.5,
+  "feesCents": {
+    "kalshi": 0,
+    "polymarket": 0
+  },
+  "summary": {
+    "pairsScanned": 2,
+    "opportunities": 2,
+    "priceSpreads": 4,
+    "rejectedPairs": 0
+  },
+  "orderbookReads": {
+    "kalshi": {
+      "reads": 1,
+      "dedupedReads": 1,
+      "cacheHits": 0,
+      "liveWatchedHits": 0,
+      "websocketHits": 0,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 1,
+      "cacheUnavailable": 0,
+      "restFetches": 1,
+      "restWrites": 1
+    },
+    "polymarket": {
+      "reads": 2,
+      "dedupedReads": 2,
+      "cacheHits": 2,
+      "liveWatchedHits": 2,
+      "websocketHits": 2,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 0,
+      "cacheUnavailable": 0,
+      "restFetches": 0,
+      "restWrites": 0
+    },
+    "total": {
+      "reads": 3,
+      "dedupedReads": 3,
+      "cacheHits": 2,
+      "liveWatchedHits": 2,
+      "websocketHits": 2,
+      "restHits": 0,
+      "missingCacheMisses": 0,
+      "staleCacheMisses": 1,
+      "cacheUnavailable": 0,
+      "restFetches": 1,
+      "restWrites": 1
+    }
+  },
+  "discoveryResult": null,
+  "pairs": [
+    {
+      "id": "KXRECOGSOMALI-29-27|will-trump-recognize-somaliland-before-2027",
+      "title": "Will Trump recognize Somaliland?",
+      "outcomeLabel": "Before 2027",
+      "enabled": true,
+      "priority": true,
+      "verified": true,
+      "note": "Discovery-reviewed candidate: shared=trump,recognize,somaliland,2027;anchors=trump,recognize,somaliland",
+      "expectedResolutionAt": 1798815600000,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "kalshi": {
+        "ticker": "KXRECOGSOMALI-29-27",
+        "liquidityDollars": null,
+        "volume24h": null
+      },
+      "polymarket": {
+        "slug": "will-trump-recognize-somaliland-before-2027",
+        "yesTokenId": "102929345572635447239887363328073498574489822201252070158392894695407110289078",
+        "noTokenId": "45379554986085871584947058416771977376718772776823210930085949823850591101312",
+        "liquidityDollars": null,
+        "volume24h": null
+      }
+    },
+    {
+      "id": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "enabled": true,
+      "priority": true,
+      "verified": true,
+      "note": "Manual verified overlap: Kalshi KXRECOGSOMALI-29-27 and Polymarket will-trump-recognize-somaliland-before-2027 both resolve on formal U.S. recognition of Somaliland by end-2026.",
+      "liquidityDollars": null,
+      "volume24h": null,
+      "kalshi": {
+        "ticker": "KXRECOGSOMALI-29-27",
+        "liquidityDollars": null,
+        "volume24h": null
+      },
+      "polymarket": {
+        "slug": "will-trump-recognize-somaliland-before-2027",
+        "yesTokenId": "102929345572635447239887363328073498574489822201252070158392894695407110289078",
+        "noTokenId": "45379554986085871584947058416771977376718772776823210930085949823850591101312",
+        "liquidityDollars": null,
+        "volume24h": null
+      }
+    }
+  ],
+  "opportunities": [
+    {
+      "pairId": "KXRECOGSOMALI-29-27|will-trump-recognize-somaliland-before-2027",
+      "title": "Will Trump recognize Somaliland?",
+      "outcomeLabel": "Before 2027",
+      "slug": "will-trump-recognize-somaliland-before-2027",
+      "buyYesVenue": "polymarket",
+      "buyNoVenue": "kalshi",
+      "grossCents": 1.7,
+      "feeCents": 0,
+      "netCents": 1.7,
+      "roiBps": 172.94,
+      "totalTopOfBookCost": 0.983,
+      "executableSize": 106,
+      "maxProfitDollars": 0.71,
+      "expectedResolutionAt": 1798815600000,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "cross_venue_yes_no_below_one",
+      "yesLeg": {
+        "venue": "polymarket",
+        "side": "YES",
+        "identifier": "will-trump-recognize-somaliland-before-2027",
+        "bestAsk": 0.143,
+        "averageFillPrice": 0.143907
+      },
+      "noLeg": {
+        "venue": "kalshi",
+        "side": "NO",
+        "identifier": "KXRECOGSOMALI-29-27",
+        "bestAsk": 0.84,
+        "averageFillPrice": 0.849434
+      }
+    },
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "slug": "will-trump-recognize-somaliland-before-2027",
+      "buyYesVenue": "polymarket",
+      "buyNoVenue": "kalshi",
+      "grossCents": 1.7,
+      "feeCents": 0,
+      "netCents": 1.7,
+      "roiBps": 172.94,
+      "totalTopOfBookCost": 0.983,
+      "executableSize": 106,
+      "maxProfitDollars": 0.71,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "cross_venue_yes_no_below_one",
+      "yesLeg": {
+        "venue": "polymarket",
+        "side": "YES",
+        "identifier": "will-trump-recognize-somaliland-before-2027",
+        "bestAsk": 0.143,
+        "averageFillPrice": 0.143907
+      },
+      "noLeg": {
+        "venue": "kalshi",
+        "side": "NO",
+        "identifier": "KXRECOGSOMALI-29-27",
+        "bestAsk": 0.84,
+        "averageFillPrice": 0.849434
+      }
+    }
+  ],
+  "priceSpreads": [
+    {
+      "pairId": "KXRECOGSOMALI-29-27|will-trump-recognize-somaliland-before-2027",
+      "title": "Will Trump recognize Somaliland?",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "YES",
+      "cheapVenue": "polymarket",
+      "richVenue": "kalshi",
+      "cheapPrice": 0.143,
+      "richPrice": 0.22,
+      "diffCents": 7.7,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "same_outcome_price_difference"
+    },
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "YES",
+      "cheapVenue": "polymarket",
+      "richVenue": "kalshi",
+      "cheapPrice": 0.143,
+      "richPrice": 0.22,
+      "diffCents": 7.7,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "same_outcome_price_difference"
+    },
+    {
+      "pairId": "KXRECOGSOMALI-29-27|will-trump-recognize-somaliland-before-2027",
+      "title": "Will Trump recognize Somaliland?",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "NO",
+      "cheapVenue": "kalshi",
+      "richVenue": "polymarket",
+      "cheapPrice": 0.84,
+      "richPrice": 0.9,
+      "diffCents": 6,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "same_outcome_price_difference"
+    },
+    {
+      "pairId": "trump-recognize-somaliland-before-2027",
+      "title": "Trump recognizes Somaliland before 2027",
+      "outcomeLabel": "Before 2027",
+      "kalshiTicker": "KXRECOGSOMALI-29-27",
+      "polymarketSlug": "will-trump-recognize-somaliland-before-2027",
+      "side": "NO",
+      "cheapVenue": "kalshi",
+      "richVenue": "polymarket",
+      "cheapPrice": 0.84,
+      "richPrice": 0.9,
+      "diffCents": 6,
+      "liquidityDollars": null,
+      "volume24h": null,
+      "reason": "same_outcome_price_difference"
+    }
+  ],
+  "rejectedPairs": []
+}

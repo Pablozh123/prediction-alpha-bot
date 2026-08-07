@@ -1,0 +1,1054 @@
+{
+  "generatedAt": "2026-06-02T18:50:11.254Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\forward-clean-2026-05-27.db",
+  "schema": {
+    "opportunities": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "raw_edge",
+        "executable_edge",
+        "fillable_usd",
+        "min_leg_depth_usd",
+        "leg_count",
+        "executable_sum",
+        "fee_adjusted_edge",
+        "basket_size_shares",
+        "basket_cost_usd",
+        "basket_payout_usd",
+        "basket_profit_usd",
+        "edge_bps",
+        "roi_bps",
+        "max_positive_basket_shares",
+        "max_positive_basket_cost_usd",
+        "expected_resolution_at",
+        "duration_hours",
+        "capital_lock_class",
+        "status",
+        "reason",
+        "token_ids",
+        "timestamp"
+      ]
+    },
+    "opportunity_legs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "opportunity_id",
+        "strategy",
+        "slug",
+        "market_id",
+        "question",
+        "token_id",
+        "side",
+        "raw_yes_price",
+        "average_fill_price",
+        "max_fillable_usd",
+        "best_bid",
+        "best_ask",
+        "spread",
+        "fillable",
+        "reason",
+        "leg_index",
+        "timestamp"
+      ]
+    },
+    "orderbook_snapshots": {
+      "exists": true,
+      "columns": [
+        "id",
+        "token_id",
+        "market_slug",
+        "event_slug",
+        "market_id",
+        "side",
+        "strategy_source",
+        "opportunity_id",
+        "source",
+        "bids_json",
+        "asks_json",
+        "best_bid",
+        "best_ask",
+        "checksum",
+        "captured_at"
+      ]
+    },
+    "scanner_runs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "timestamp",
+        "raw_opportunities",
+        "validated_opportunities",
+        "rejected_opportunities",
+        "dedupe_skips",
+        "paper_trades",
+        "duration_ms",
+        "error"
+      ]
+    },
+    "paper_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "opportunity_id",
+        "side",
+        "size_usd",
+        "size_shares",
+        "entry_price",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "inflation_flagged",
+        "resolution_reason",
+        "arb_class",
+        "timestamp",
+        "resolved_at"
+      ]
+    },
+    "scan_cycles": {
+      "exists": true,
+      "columns": [
+        "id",
+        "timestamp",
+        "success",
+        "opportunities",
+        "paper_trades",
+        "skipped_duplicates",
+        "rejected_opportunities",
+        "error"
+      ]
+    },
+    "paper_fire_dedup": {
+      "exists": true,
+      "columns": [
+        "dedupe_key",
+        "strategy",
+        "event_slug",
+        "fired_at"
+      ]
+    },
+    "paper_dedupe_skips": {
+      "exists": true,
+      "columns": [
+        "id",
+        "dedupe_key",
+        "strategy",
+        "slug",
+        "threshold",
+        "token_ids",
+        "previous_fire_at",
+        "skipped_at",
+        "cooldown_ms"
+      ]
+    },
+    "live_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "actual_fill_price",
+        "fill_status",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "exit_stamping_suspect",
+        "arb_class",
+        "leg_group_id",
+        "leg_index",
+        "timestamp",
+        "resolved_at"
+      ]
+    }
+  },
+  "runSummary": {
+    "startTime": "2026-05-27T19:42:54.514Z",
+    "endTime": "2026-05-27T22:48:13.525Z",
+    "durationHours": 3.0886,
+    "strategiesFound": [
+      "clear_win_watch",
+      "neg_risk_bracket_arb",
+      "within_market_fast_arb"
+    ],
+    "scanCycles": {
+      "available": true,
+      "value": {
+        "total": 944,
+        "successful": 936,
+        "failed": 8,
+        "totalOpportunities": 442237,
+        "totalPaperTrades": 0,
+        "totalRejectedOpportunities": 52861,
+        "totalSkippedDuplicates": 0
+      }
+    },
+    "liveTradesCount": {
+      "available": true,
+      "value": 0
+    }
+  },
+  "funnel": [
+    {
+      "strategy": "within_market_fast_arb",
+      "rawFound": 436176,
+      "currentRawFound": 5,
+      "validated": 0,
+      "rejected": 46914,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 0.1076,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawFound": 6097,
+      "currentRawFound": 4,
+      "validated": 0,
+      "rejected": 6093,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 0.9993,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    },
+    {
+      "strategy": "clear_win_watch",
+      "rawFound": 0,
+      "currentRawFound": 0,
+      "validated": 0,
+      "rejected": 0,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": null,
+      "rejectedRate": null,
+      "paperFiredRate": null,
+      "dedupeSkippedRate": null
+    }
+  ],
+  "rejectionReasons": [
+    {
+      "strategy": "within_market_fast_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 45978
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "unknown_duration_for_short_arb",
+      "count": 4485
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "duration_too_long_for_short_arb",
+      "count": 943
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "reason": "partial_basket_invalid",
+      "count": 936
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 427
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "insufficient_clean_edge",
+      "count": 238
+    }
+  ],
+  "edgeQuality": [
+    {
+      "strategy": "clear_win_watch",
+      "rawEdgeBps": {
+        "avg": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "executableEdgeBps": {
+        "avg": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      }
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawEdgeBps": {
+        "avg": 7452.84,
+        "median": 4760,
+        "min": 5,
+        "max": 30520
+      },
+      "executableEdgeBps": {
+        "avg": 7435.72,
+        "median": 4760,
+        "min": -300,
+        "max": 30520
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": 7435.72,
+          "median": 4760,
+          "min": -300,
+          "max": 30520
+        }
+      }
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "rawEdgeBps": {
+        "avg": -27.06,
+        "median": -10,
+        "min": -90,
+        "max": 580
+      },
+      "executableEdgeBps": {
+        "avg": -108.33,
+        "median": -70,
+        "min": -1900,
+        "max": -10
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": -108.33,
+          "median": -70,
+          "min": -1900,
+          "max": -10
+        }
+      }
+    }
+  ],
+  "capacity": [
+    {
+      "strategy": "clear_win_watch",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      }
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 419359.08,
+          "median": 210572.172,
+          "min": 7859.8878,
+          "max": 1925998.7535
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 110391.52,
+          "median": 40604.92246,
+          "min": 1309.9813,
+          "max": 641999.5845
+        }
+      }
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 408572.15,
+          "median": 67438.21168,
+          "min": 0,
+          "max": 6538653.52288
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 204286.07,
+          "median": 33719.10584,
+          "min": 0,
+          "max": 3269326.76144
+        }
+      }
+    }
+  ],
+  "topByExecutableEdge": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915808351
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915788204
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915778161
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915768219
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915758136
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915748143
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 598179.5832,
+      "minLegDepthUsd": 74772.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18256440879.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915738360
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915728192
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915710616
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915698032
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915688033
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915678078
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915668098
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915658090
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915648011
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915638169
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915628600
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915618111
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915608121
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30520,
+      "executableEdgeBps": 30520,
+      "fillableUsd": 601459.5832,
+      "minLegDepthUsd": 75182.4479,
+      "legCount": 8,
+      "executableSum": 3.948,
+      "executableEdgeTimesFillableUsd": 18356546479.26,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779915597966
+    }
+  ],
+  "topByExecutableEdgeTimesFillableUsd": {
+    "available": true,
+    "value": [
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914405610
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914424572
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914435335
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914444537
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914454595
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914465428
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914474644
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914484520
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914504550
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914514608
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914535715
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914545728
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 18567021708.14,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779914556013
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912932861
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912941456
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912951767
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912963212
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912971502
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779912992919
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30320,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 610355.7432,
+        "minLegDepthUsd": 76294.4679,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 18505986133.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779913001454
+      }
+    ]
+  },
+  "timeAnalysis": {
+    "opportunitiesPerHour": 17165.06,
+    "validatedPerHour": 0,
+    "rejectedPerHour": 17162.14,
+    "hourly": [
+      {
+        "hour": "2026-05-27T19",
+        "opportunities": 5293,
+        "validated": 0,
+        "rejected": 5293
+      },
+      {
+        "hour": "2026-05-27T20",
+        "opportunities": 17619,
+        "validated": 0,
+        "rejected": 17618
+      },
+      {
+        "hour": "2026-05-27T21",
+        "opportunities": 17289,
+        "validated": 0,
+        "rejected": 17286
+      },
+      {
+        "hour": "2026-05-27T22",
+        "opportunities": 12815,
+        "validated": 0,
+        "rejected": 12810
+      }
+    ]
+  },
+  "paperTrades": [
+    {
+      "strategy": "clear_win_watch",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    }
+  ],
+  "dataQualityWarnings": [],
+  "verdicts": [
+    {
+      "strategy": "within_market_fast_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "clear_win_watch",
+      "verdict": "PAUSE",
+      "reason": "No usable opportunities were found."
+    }
+  ]
+}

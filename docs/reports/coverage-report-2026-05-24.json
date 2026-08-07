@@ -1,0 +1,469 @@
+{
+  "generatedAt": "2026-05-24T18:52:27.232Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\forward-clean-2026-05-23.db",
+  "scanCycles": {
+    "total": 6,
+    "successful": 6,
+    "failed": 0
+  },
+  "scannerRuns": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "runs": 6,
+      "rawOpportunities": 20,
+      "validatedOpportunities": 4,
+      "rejectedOpportunities": 0,
+      "dedupeSkips": 16,
+      "paperTrades": 18,
+      "averageDurationMs": 137.17,
+      "errors": 0
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "runs": 6,
+      "rawOpportunities": 3108,
+      "validatedOpportunities": 0,
+      "rejectedOpportunities": 300,
+      "dedupeSkips": 0,
+      "paperTrades": 0,
+      "averageDurationMs": 113.17,
+      "errors": 0
+    }
+  ],
+  "snapshots": {
+    "total": 728,
+    "uniqueTokens": 170,
+    "uniqueMarkets": 124,
+    "uniqueEvents": 7,
+    "latestCapturedAt": "2026-05-23T15:48:37.447Z",
+    "latestStalenessMs": 97429816,
+    "sideCounts": [
+      {
+        "name": "NO",
+        "count": 386
+      },
+      {
+        "name": "YES",
+        "count": 332
+      },
+      {
+        "name": "unknown",
+        "count": 10
+      }
+    ],
+    "sourceCounts": [
+      {
+        "name": "within_market_yes_no_arb",
+        "count": 600
+      },
+      {
+        "name": "neg_risk_watch",
+        "count": 50
+      },
+      {
+        "name": "within_market_watch",
+        "count": 50
+      },
+      {
+        "name": "neg_risk_bracket_arb",
+        "count": 18
+      },
+      {
+        "name": "recent_opportunity",
+        "count": 10
+      }
+    ]
+  },
+  "opportunities": {
+    "statusCounts": [
+      {
+        "name": "rejected",
+        "count": 300
+      },
+      {
+        "name": "paper_fired",
+        "count": 4
+      }
+    ],
+    "rejectionReasons": [
+      {
+        "name": "non_positive_executable_edge",
+        "count": 300
+      }
+    ]
+  },
+  "counts": {
+    "liveTrades": 0,
+    "paperTrades": 18,
+    "paperDedupeSkips": 16
+  },
+  "tokenBlocksByReason": [
+    {
+      "reason": "orderbook_not_found",
+      "count": 50
+    }
+  ],
+  "withinMarketNearMisses": [
+    {
+      "marketKey": "gta-vi-released-before-june-2026",
+      "slug": "gta-vi-released-before-june-2026",
+      "yesTokenId": "8441400852834915183759801017793514978104486628517653995211751018945988243154",
+      "noTokenId": "109289569086508934142323222102974769075074494425163878721602922903101062859033",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "james-collier-announced-as-next-james-bond",
+      "slug": "james-collier-announced-as-next-james-bond",
+      "yesTokenId": "86364606957252189309982179038306524287216246431215333838823307925824277620329",
+      "noTokenId": "20082609240124810914902170737072611647290235505634419666485573277519609540712",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "jeffrey-epstein-foul-play-confirmed-by-december-31-2026",
+      "slug": "jeffrey-epstein-foul-play-confirmed-by-december-31-2026",
+      "yesTokenId": "69162030465037941268862284627658886205173465981805919620559686624259677735192",
+      "noTokenId": "76372194545838535783490148896316297976627938120220239171956676589522420141188",
+      "askYes": 0.072,
+      "askNo": 0.929,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "macron-out-by-june-30-2026-273",
+      "slug": "macron-out-by-june-30-2026-273",
+      "yesTokenId": "16201530957950630406397949502319734794139620443510795733205872225099141120819",
+      "noTokenId": "22488814055465212843401871684243737932656687199587127613893702721105723939237",
+      "askYes": 0.005,
+      "askNo": 0.996,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+      "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+      "yesTokenId": "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+      "noTokenId": "65176388692130651396848427090788038285140833850265294793449655516920659740141",
+      "askYes": 0.462,
+      "askNo": 0.539,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "natoeu-troops-fighting-in-ukraine-in-june-30-2026",
+      "slug": "natoeu-troops-fighting-in-ukraine-in-june-30-2026",
+      "yesTokenId": "107587773577193309872234793913282710128193219302267633047803930965862507239189",
+      "noTokenId": "28896435178698960514118263445469746104354405285937252810253126742266982740239",
+      "askYes": 0.021,
+      "askNo": 0.98,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "netanyahu-out-by-june-30-383-244-575",
+      "slug": "netanyahu-out-by-june-30-383-244-575",
+      "yesTokenId": "110540225177219524039862595475289990032643955968401089134377304882717624846278",
+      "noTokenId": "54062452792656591940498333119952225497035882944827198088651910072416401737992",
+      "askYes": 0.027,
+      "askNo": 0.974,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "netanyahu-out-by-may-31",
+      "slug": "netanyahu-out-by-may-31",
+      "yesTokenId": "37387521248243934601038595503021732211653093656817313284775149072918221081890",
+      "noTokenId": "43922360245019925448014613233325808851342080979414111621138725695702056279772",
+      "askYes": 0.005,
+      "askNo": 0.996,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "pierce-brosnan-announced-as-next-james-bond-557",
+      "slug": "pierce-brosnan-announced-as-next-james-bond-557",
+      "yesTokenId": "54120517297787449950767396444302816721060398794472692356305596424687388939708",
+      "noTokenId": "56736811231402173896482039454132656829697330201604223976298122972923334638073",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "placeholder-6-announced-as-next-james-bond-114",
+      "slug": "placeholder-6-announced-as-next-james-bond-114",
+      "yesTokenId": "2539243778315573823923907482719197372899536309178051544334006233242009567404",
+      "noTokenId": "49398778857041521575790735877808893757855458653640702199523137840060237289444",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "starmer-out-by-may-31-2026",
+      "slug": "starmer-out-by-may-31-2026",
+      "yesTokenId": "59804740893116830082655722678282357324530422193334657680222344987920273408829",
+      "noTokenId": "97166107287234497412734496054463228470063422608173149121206267858484467672978",
+      "askYes": 0.042,
+      "askNo": 0.959,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "slug": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "yesTokenId": "105267568073659068217311993901927962476298440625043565106676088842803600775810",
+      "noTokenId": "91863162118308663069733924043159186005106558783397508844234610341221325526200",
+      "askYes": 0.492,
+      "askNo": 0.509,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "610236",
+      "slug": "natoeu-troops-fighting-in-ukraine-in-june-30-2026",
+      "yesTokenId": "107587773577193309872234793913282710128193219302267633047803930965862507239189",
+      "noTokenId": "28896435178698960514118263445469746104354405285937252810253126742266982740239",
+      "askYes": 0.021,
+      "askNo": 0.98,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 389,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "540881",
+      "slug": "gta-vi-released-before-june-2026",
+      "yesTokenId": "8441400852834915183759801017793514978104486628517653995211751018945988243154",
+      "noTokenId": "109289569086508934142323222102974769075074494425163878721602922903101062859033",
+      "askYes": 0.002,
+      "askNo": 0.999,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 407,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "597964",
+      "slug": "macron-out-by-june-30-2026-273",
+      "yesTokenId": "16201530957950630406397949502319734794139620443510795733205872225099141120819",
+      "noTokenId": "22488814055465212843401871684243737932656687199587127613893702721105723939237",
+      "askYes": 0.005,
+      "askNo": 0.996,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 489,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "540844",
+      "slug": "will-bitcoin-hit-1m-before-gta-vi-872-424",
+      "yesTokenId": "105267568073659068217311993901927962476298440625043565106676088842803600775810",
+      "noTokenId": "91863162118308663069733924043159186005106558783397508844234610341221325526200",
+      "askYes": 0.492,
+      "askNo": 0.509,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 9579,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2231205",
+      "slug": "starmer-out-by-may-31-2026",
+      "yesTokenId": "59804740893116830082655722678282357324530422193334657680222344987920273408829",
+      "noTokenId": "97166107287234497412734496054463228470063422608173149121206267858484467672978",
+      "askYes": 0.042,
+      "askNo": 0.959,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 22557,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "692258",
+      "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+      "yesTokenId": "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+      "noTokenId": "65176388692130651396848427090788038285140833850265294793449655516920659740141",
+      "askYes": 0.462,
+      "askNo": 0.539,
+      "totalCost": 1.001,
+      "expectedEdge": -0.001,
+      "distanceToThreshold": 0.021,
+      "capturedAtDeltaMs": 29305,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2026-balance-of-power-d-senate-r-house-692",
+      "slug": "2026-balance-of-power-d-senate-r-house-692",
+      "yesTokenId": "70997927349469817841862065582625658840347600365813612622959588796331622340305",
+      "noTokenId": "45720947308530468765087874228584729250108790729495800420104302263408503667446",
+      "askYes": 0.022,
+      "askNo": 0.98,
+      "totalCost": 1.002,
+      "expectedEdge": -0.002,
+      "distanceToThreshold": 0.022,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    },
+    {
+      "marketKey": "2026-balance-of-power-other-131",
+      "slug": "2026-balance-of-power-other-131",
+      "yesTokenId": "35477631289241705233759154026285946627439635224019448868888132647783862821489",
+      "noTokenId": "58154574909590813657096858535882625339077077643653677858955479541043465171526",
+      "askYes": 0.01,
+      "askNo": 0.992,
+      "totalCost": 1.002,
+      "expectedEdge": -0.002,
+      "distanceToThreshold": 0.022,
+      "capturedAtDeltaMs": 0,
+      "status": "near_miss"
+    }
+  ],
+  "negRiskNearMisses": [
+    {
+      "eventSlug": "what-will-happen-before-gta-vi",
+      "legCount": 8,
+      "executableSum": 3.909,
+      "theoreticalPayout": 7,
+      "expectedGrossEdge": 3.091,
+      "edgeBps": 30910,
+      "capturedAtDeltaMs": 0,
+      "worstLeg": {
+        "tokenId": "92388629082681805622801622703528982922543286352927708208755887536971583436902",
+        "marketSlug": "will-jesus-christ-return-before-gta-vi-665",
+        "ask": 0.52
+      }
+    },
+    {
+      "eventSlug": "will-russia-capture-kostyantynivka-by",
+      "legCount": 4,
+      "executableSum": 2.506,
+      "theoreticalPayout": 3,
+      "expectedGrossEdge": 0.494,
+      "edgeBps": 4940,
+      "capturedAtDeltaMs": 0,
+      "worstLeg": {
+        "tokenId": "25648885101397690756283800036871749844131890020935661811158571426964687277506",
+        "marketSlug": "will-russia-capture-kostyantynivka-by-may-31",
+        "ask": 0.992
+      }
+    },
+    {
+      "eventSlug": "microstrategy-sell-any-bitcoin-in-2025",
+      "legCount": 3,
+      "executableSum": 1.629,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": 0.371,
+      "edgeBps": 3710,
+      "capturedAtDeltaMs": 0,
+      "worstLeg": {
+        "tokenId": "3192689304828767159232889612891719105504357313659012189260030438494464480574",
+        "marketSlug": "microstrategy-sells-any-bitcoin-by-may-31-2026",
+        "ask": 0.89
+      }
+    },
+    {
+      "eventSlug": "starmer-out-in-2025",
+      "legCount": 3,
+      "executableSum": 1.959,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": 0.041,
+      "edgeBps": 410,
+      "capturedAtDeltaMs": 0,
+      "worstLeg": {
+        "tokenId": "97166107287234497412734496054463228470063422608173149121206267858484467672978",
+        "marketSlug": "starmer-out-by-may-31-2026",
+        "ask": 0.959
+      }
+    },
+    {
+      "eventSlug": "2026-nhl-stanley-cup-champion",
+      "legCount": 4,
+      "executableSum": 3,
+      "theoreticalPayout": 3,
+      "expectedGrossEdge": 0,
+      "edgeBps": 0,
+      "capturedAtDeltaMs": 1159,
+      "worstLeg": {
+        "tokenId": "87978082071653935678874296685430503892266481242311708420787197372467948088235",
+        "marketSlug": "will-the-colorado-avalanche-win-the-2026-nhl-stanley-cup",
+        "ask": 0.82
+      }
+    },
+    {
+      "eventSlug": "2026-fifa-world-cup-winner-595",
+      "legCount": 21,
+      "executableSum": 20.12,
+      "theoreticalPayout": 20,
+      "expectedGrossEdge": -0.12,
+      "edgeBps": -1200,
+      "capturedAtDeltaMs": 10074,
+      "worstLeg": {
+        "tokenId": "49871252661742427315226109307954871479267113637891510501334531720454017709951",
+        "marketSlug": "will-algeria-win-the-2026-fifa-world-cup",
+        "ask": 0.999
+      }
+    },
+    {
+      "eventSlug": "hyperliquid-airdop-by",
+      "legCount": 3,
+      "executableSum": 2.13,
+      "theoreticalPayout": 2,
+      "expectedGrossEdge": -0.13,
+      "edgeBps": -1300,
+      "capturedAtDeltaMs": 784,
+      "worstLeg": {
+        "tokenId": "85487630954297906857427842745787851948079273488527800245673979479655643658539",
+        "marketSlug": "will-hyperliquid-perform-an-airdrop-by-december-31-2026",
+        "ask": 0.82
+      }
+    }
+  ],
+  "warnings": []
+}

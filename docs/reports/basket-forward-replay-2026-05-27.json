@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-06-02T18:50:11.876Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\forward-clean-2026-05-27.db",
+  "mode": "linked",
+  "maxSnapshotStalenessMs": 600000,
+  "rows": [],
+  "summary": {
+    "total": 0,
+    "replayed": 0,
+    "skipped": 0,
+    "linked": 0,
+    "unlinked": 0
+  }
+}

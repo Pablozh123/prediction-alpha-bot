@@ -1,0 +1,1183 @@
+{
+  "generatedAt": "2026-06-02T18:49:07.830Z",
+  "dbPath": "C:\\Users\\chole\\Projects\\prediction-alpha-bot\\logs\\trades.db",
+  "schema": {
+    "opportunities": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "raw_edge",
+        "executable_edge",
+        "status",
+        "reason",
+        "token_ids",
+        "timestamp",
+        "fillable_usd",
+        "min_leg_depth_usd",
+        "leg_count",
+        "executable_sum",
+        "fee_adjusted_edge",
+        "basket_size_shares",
+        "basket_cost_usd",
+        "basket_payout_usd",
+        "basket_profit_usd",
+        "edge_bps",
+        "roi_bps",
+        "max_positive_basket_shares",
+        "max_positive_basket_cost_usd",
+        "expected_resolution_at",
+        "duration_hours",
+        "capital_lock_class"
+      ]
+    },
+    "opportunity_legs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "opportunity_id",
+        "strategy",
+        "slug",
+        "market_id",
+        "question",
+        "token_id",
+        "side",
+        "raw_yes_price",
+        "average_fill_price",
+        "max_fillable_usd",
+        "best_bid",
+        "best_ask",
+        "spread",
+        "fillable",
+        "reason",
+        "leg_index",
+        "timestamp"
+      ]
+    },
+    "orderbook_snapshots": {
+      "exists": true,
+      "columns": [
+        "id",
+        "token_id",
+        "market_slug",
+        "opportunity_id",
+        "source",
+        "bids_json",
+        "asks_json",
+        "best_bid",
+        "best_ask",
+        "checksum",
+        "captured_at",
+        "event_slug",
+        "market_id",
+        "side",
+        "strategy_source",
+        "expected_resolution_at"
+      ]
+    },
+    "scanner_runs": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "timestamp",
+        "raw_opportunities",
+        "validated_opportunities",
+        "rejected_opportunities",
+        "paper_trades",
+        "duration_ms",
+        "error",
+        "dedupe_skips"
+      ]
+    },
+    "paper_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "inflation_flagged",
+        "arb_class",
+        "timestamp",
+        "resolved_at",
+        "opportunity_id",
+        "resolution_reason",
+        "size_shares"
+      ]
+    },
+    "scan_cycles": {
+      "exists": true,
+      "columns": [
+        "id",
+        "timestamp",
+        "success",
+        "opportunities",
+        "paper_trades",
+        "skipped_duplicates",
+        "rejected_opportunities",
+        "error"
+      ]
+    },
+    "paper_fire_dedup": {
+      "exists": true,
+      "columns": [
+        "dedupe_key",
+        "strategy",
+        "event_slug",
+        "fired_at"
+      ]
+    },
+    "paper_dedupe_skips": {
+      "exists": true,
+      "columns": [
+        "id",
+        "dedupe_key",
+        "strategy",
+        "slug",
+        "threshold",
+        "token_ids",
+        "previous_fire_at",
+        "skipped_at",
+        "cooldown_ms"
+      ]
+    },
+    "live_trades": {
+      "exists": true,
+      "columns": [
+        "id",
+        "strategy",
+        "slug",
+        "question",
+        "token_id",
+        "side",
+        "size_usd",
+        "entry_price",
+        "actual_fill_price",
+        "fill_status",
+        "exit_price",
+        "resolved",
+        "pnl",
+        "exit_stamping_suspect",
+        "arb_class",
+        "leg_group_id",
+        "leg_index",
+        "timestamp",
+        "resolved_at"
+      ]
+    }
+  },
+  "runSummary": {
+    "startTime": "2026-05-19T21:12:18.312Z",
+    "endTime": "2026-05-29T21:59:30.095Z",
+    "durationHours": 240.7866,
+    "strategiesFound": [
+      "clear_win_watch",
+      "neg_risk_bracket_arb",
+      "within_market_fast_arb",
+      "within_market_yes_no_arb"
+    ],
+    "scanCycles": {
+      "available": true,
+      "value": {
+        "total": 3163,
+        "successful": 3163,
+        "failed": 0,
+        "totalOpportunities": 3967,
+        "totalPaperTrades": 20,
+        "totalRejectedOpportunities": 920,
+        "totalSkippedDuplicates": 22
+      }
+    },
+    "liveTradesCount": {
+      "available": true,
+      "value": 0
+    }
+  },
+  "funnel": [
+    {
+      "strategy": "within_market_fast_arb",
+      "rawFound": 2354,
+      "currentRawFound": 0,
+      "validated": 0,
+      "rejected": 250,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 0.1062,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "rawFound": 1554,
+      "currentRawFound": 0,
+      "validated": 0,
+      "rejected": 618,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 0.3977,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawFound": 355,
+      "currentRawFound": 0,
+      "validated": 4,
+      "rejected": 332,
+      "paperFired": 4,
+      "dedupeSkipped": 22,
+      "validatedRate": 0.0113,
+      "rejectedRate": 0.9352,
+      "paperFiredRate": 0.0113,
+      "dedupeSkippedRate": 0.062
+    },
+    {
+      "strategy": "clear_win_watch",
+      "rawFound": 6,
+      "currentRawFound": 0,
+      "validated": 0,
+      "rejected": 6,
+      "paperFired": 0,
+      "dedupeSkipped": 0,
+      "validatedRate": 0,
+      "rejectedRate": 1,
+      "paperFiredRate": 0,
+      "dedupeSkippedRate": 0
+    }
+  ],
+  "rejectionReasons": [
+    {
+      "strategy": "within_market_yes_no_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 473
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 308
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "reason": "non_positive_executable_edge",
+      "count": 249
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "reason": "partial_basket_invalid",
+      "count": 145
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "unknown_duration_for_short_arb",
+      "count": 15
+    },
+    {
+      "strategy": "clear_win_watch",
+      "reason": "near_resolution_watch",
+      "count": 6
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "duration_too_long_for_short_arb",
+      "count": 4
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "nested_temporal_basket",
+      "count": 3
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "insufficient_clean_edge",
+      "count": 1
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "reason": "multi_winner_or_qualifier_basket",
+      "count": 1
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "reason": "partial_basket_invalid",
+      "count": 1
+    }
+  ],
+  "edgeQuality": [
+    {
+      "strategy": "clear_win_watch",
+      "rawEdgeBps": {
+        "avg": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "executableEdgeBps": {
+        "avg": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      }
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "rawEdgeBps": {
+        "avg": 754.65,
+        "median": 45,
+        "min": 5,
+        "max": 31210
+      },
+      "executableEdgeBps": {
+        "avg": 558.72,
+        "median": -150,
+        "min": -1230,
+        "max": 31210
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": 8334.84,
+          "median": 4590,
+          "min": -400,
+          "max": 31210
+        }
+      }
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "rawEdgeBps": {
+        "avg": -10,
+        "median": -10,
+        "min": -10,
+        "max": -10
+      },
+      "executableEdgeBps": {
+        "avg": -12.09,
+        "median": -10,
+        "min": -90,
+        "max": -10
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": -12.09,
+          "median": -10,
+          "min": -90,
+          "max": -10
+        }
+      }
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "rawEdgeBps": {
+        "avg": -1.62,
+        "median": 0,
+        "min": -10,
+        "max": 0
+      },
+      "executableEdgeBps": {
+        "avg": -117.57,
+        "median": -10,
+        "min": -4710,
+        "max": -10
+      },
+      "feeAdjustedEdgeBps": {
+        "available": true,
+        "value": {
+          "avg": -117.57,
+          "median": -10,
+          "min": -4710,
+          "max": -10
+        }
+      }
+    }
+  ],
+  "capacity": [
+    {
+      "strategy": "clear_win_watch",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": null,
+          "median": null,
+          "min": null,
+          "max": null
+        }
+      }
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 359831.19,
+          "median": 240950.72976,
+          "min": 665.34,
+          "max": 1856326.7532
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 84101.73,
+          "median": 48986.13266,
+          "min": 110.89,
+          "max": 618775.5844
+        }
+      }
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 8926818.39,
+          "median": 6108920.42698,
+          "min": 0,
+          "max": 42190024.70584
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 4463409.19,
+          "median": 3054460.21349,
+          "min": 0,
+          "max": 21095012.35292
+        }
+      }
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "fillableUsd": {
+        "available": true,
+        "value": {
+          "avg": 3711955.09,
+          "median": 164721.74466000003,
+          "min": 0,
+          "max": 42187865.19142
+        }
+      },
+      "minLegDepthUsd": {
+        "available": true,
+        "value": {
+          "avg": 1855977.54,
+          "median": 82360.87233000001,
+          "min": 0,
+          "max": 21093932.59571
+        }
+      }
+    }
+  ],
+  "topByExecutableEdge": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 31210,
+      "executableEdgeBps": 31210,
+      "fillableUsd": 551558.1032,
+      "minLegDepthUsd": 68944.7629,
+      "legCount": 8,
+      "executableSum": 3.879,
+      "executableEdgeTimesFillableUsd": 17214128400.87,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779800780165
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30710,
+      "executableEdgeBps": 31210,
+      "fillableUsd": 552980.1832,
+      "minLegDepthUsd": 69122.5229,
+      "legCount": 8,
+      "executableSum": 3.879,
+      "executableEdgeTimesFillableUsd": 17258511517.67,
+      "status": "rejected",
+      "reason": "nested_temporal_basket",
+      "timestamp": 1779800710936
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 31210,
+      "executableEdgeBps": 31020,
+      "fillableUsd": 552290.6816,
+      "minLegDepthUsd": 69036.3352,
+      "legCount": 8,
+      "executableSum": 3.898,
+      "executableEdgeTimesFillableUsd": 17132056943.23,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779804395939
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30710,
+      "executableEdgeBps": 30710,
+      "fillableUsd": 555789.2072,
+      "minLegDepthUsd": 69473.6509,
+      "legCount": 8,
+      "executableSum": 3.929,
+      "executableEdgeTimesFillableUsd": 17068286553.11,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779548898897
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 31020,
+      "executableEdgeBps": 30420,
+      "fillableUsd": 523059.5832,
+      "minLegDepthUsd": 65382.4479,
+      "legCount": 8,
+      "executableSum": 3.958,
+      "executableEdgeTimesFillableUsd": 15911472520.94,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779910192728
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "what-will-happen-before-gta-vi",
+      "rawEdgeBps": 30420,
+      "executableEdgeBps": 30320,
+      "fillableUsd": 447741.9088,
+      "minLegDepthUsd": 55967.7386,
+      "legCount": 8,
+      "executableSum": 3.968,
+      "executableEdgeTimesFillableUsd": 13575534674.82,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1780091965649
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "microstrategy-sell-any-bitcoin-in-2025",
+      "rawEdgeBps": 3520,
+      "executableEdgeBps": 8490,
+      "fillableUsd": 121906.8891,
+      "minLegDepthUsd": 40635.6297,
+      "legCount": 3,
+      "executableSum": 1.151,
+      "executableEdgeTimesFillableUsd": 1034989488.46,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1780091965944
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 5440,
+      "executableEdgeBps": 7460,
+      "fillableUsd": 11959.1126,
+      "minLegDepthUsd": 2989.77815,
+      "legCount": 4,
+      "executableSum": 2.254,
+      "executableEdgeTimesFillableUsd": 89214980,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1780091965838
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+      "rawEdgeBps": 6055,
+      "executableEdgeBps": 6170,
+      "fillableUsd": 257826.06702,
+      "minLegDepthUsd": 42971.01117,
+      "legCount": 6,
+      "executableSum": 4.383,
+      "executableEdgeTimesFillableUsd": 1590786833.51,
+      "status": "rejected",
+      "reason": "duration_too_long_for_short_arb",
+      "timestamp": 1780091965458
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+      "rawEdgeBps": 5870,
+      "executableEdgeBps": 5910,
+      "fillableUsd": 240950.72976,
+      "minLegDepthUsd": 40158.45496,
+      "legCount": 6,
+      "executableSum": 4.409,
+      "executableEdgeTimesFillableUsd": 1424018812.88,
+      "status": "rejected",
+      "reason": "duration_too_long_for_short_arb",
+      "timestamp": 1779910192559
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+      "rawEdgeBps": 5485,
+      "executableEdgeBps": 5490,
+      "fillableUsd": 296780.35596,
+      "minLegDepthUsd": 49463.39266,
+      "legCount": 6,
+      "executableSum": 4.451,
+      "executableEdgeTimesFillableUsd": 1629324154.22,
+      "status": "rejected",
+      "reason": "duration_too_long_for_short_arb",
+      "timestamp": 1779804395757
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 4900,
+      "executableEdgeBps": 5440,
+      "fillableUsd": 34944.74276,
+      "minLegDepthUsd": 8736.18569,
+      "legCount": 4,
+      "executableSum": 2.456,
+      "executableEdgeTimesFillableUsd": 190099400.61,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779910192966
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 4910,
+      "executableEdgeBps": 4910,
+      "fillableUsd": 69930.91616,
+      "minLegDepthUsd": 17482.72904,
+      "legCount": 4,
+      "executableSum": 2.509,
+      "executableEdgeTimesFillableUsd": 343360798.35,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779800780402
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 4970,
+      "executableEdgeBps": 4910,
+      "fillableUsd": 69930.91616,
+      "minLegDepthUsd": 17482.72904,
+      "legCount": 4,
+      "executableSum": 2.509,
+      "executableEdgeTimesFillableUsd": 343360798.35,
+      "status": "rejected",
+      "reason": "nested_temporal_basket",
+      "timestamp": 1779800711142
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "will-russia-capture-kostyantynivka-by",
+      "rawEdgeBps": 4910,
+      "executableEdgeBps": 4900,
+      "fillableUsd": 69930.91616,
+      "minLegDepthUsd": 17482.72904,
+      "legCount": 4,
+      "executableSum": 2.51,
+      "executableEdgeTimesFillableUsd": 342661489.18,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779804396138
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+      "rawEdgeBps": 4480,
+      "executableEdgeBps": 4590,
+      "fillableUsd": 293916.79596,
+      "minLegDepthUsd": 48986.13266,
+      "legCount": 6,
+      "executableSum": 4.541,
+      "executableEdgeTimesFillableUsd": 1349078093.46,
+      "status": "rejected",
+      "reason": "duration_too_long_for_short_arb",
+      "timestamp": 1779800779959
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+      "rawEdgeBps": 4480,
+      "executableEdgeBps": 4590,
+      "fillableUsd": 293916.79596,
+      "minLegDepthUsd": 48986.13266,
+      "legCount": 6,
+      "executableSum": 4.541,
+      "executableEdgeTimesFillableUsd": 1349078093.46,
+      "status": "rejected",
+      "reason": "multi_winner_or_qualifier_basket",
+      "timestamp": 1779800710726
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "microstrategy-sell-any-bitcoin-in-2025",
+      "rawEdgeBps": 3610,
+      "executableEdgeBps": 3610,
+      "fillableUsd": 116425.2867,
+      "minLegDepthUsd": 38808.4289,
+      "legCount": 3,
+      "executableSum": 1.639,
+      "executableEdgeTimesFillableUsd": 420295284.99,
+      "status": "paper_fired",
+      "reason": "paper_trade_recorded",
+      "timestamp": 1779548899250
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "microstrategy-sell-any-bitcoin-in-2025",
+      "rawEdgeBps": 720,
+      "executableEdgeBps": 3520,
+      "fillableUsd": 202752.2637,
+      "minLegDepthUsd": 67584.0879,
+      "legCount": 3,
+      "executableSum": 1.648,
+      "executableEdgeTimesFillableUsd": 713687968.22,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1779910193074
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "slug": "starmer-out-in-2025",
+      "rawEdgeBps": 2210,
+      "executableEdgeBps": 1780,
+      "fillableUsd": 139452.836,
+      "minLegDepthUsd": 27890.5672,
+      "legCount": 5,
+      "executableSum": 3.822,
+      "executableEdgeTimesFillableUsd": 248226048.08,
+      "status": "rejected",
+      "reason": "unknown_duration_for_short_arb",
+      "timestamp": 1780091966027
+    }
+  ],
+  "topByExecutableEdgeTimesFillableUsd": {
+    "available": true,
+    "value": [
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30710,
+        "executableEdgeBps": 31210,
+        "fillableUsd": 552980.1832,
+        "minLegDepthUsd": 69122.5229,
+        "legCount": 8,
+        "executableSum": 3.879,
+        "executableEdgeTimesFillableUsd": 17258511517.67,
+        "status": "rejected",
+        "reason": "nested_temporal_basket",
+        "timestamp": 1779800710936
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 31210,
+        "executableEdgeBps": 31210,
+        "fillableUsd": 551558.1032,
+        "minLegDepthUsd": 68944.7629,
+        "legCount": 8,
+        "executableSum": 3.879,
+        "executableEdgeTimesFillableUsd": 17214128400.87,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779800780165
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 31210,
+        "executableEdgeBps": 31020,
+        "fillableUsd": 552290.6816,
+        "minLegDepthUsd": 69036.3352,
+        "legCount": 8,
+        "executableSum": 3.898,
+        "executableEdgeTimesFillableUsd": 17132056943.23,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779804395939
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30710,
+        "executableEdgeBps": 30710,
+        "fillableUsd": 555789.2072,
+        "minLegDepthUsd": 69473.6509,
+        "legCount": 8,
+        "executableSum": 3.929,
+        "executableEdgeTimesFillableUsd": 17068286553.11,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779548898897
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 31020,
+        "executableEdgeBps": 30420,
+        "fillableUsd": 523059.5832,
+        "minLegDepthUsd": 65382.4479,
+        "legCount": 8,
+        "executableSum": 3.958,
+        "executableEdgeTimesFillableUsd": 15911472520.94,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779910192728
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "what-will-happen-before-gta-vi",
+        "rawEdgeBps": 30420,
+        "executableEdgeBps": 30320,
+        "fillableUsd": 447741.9088,
+        "minLegDepthUsd": 55967.7386,
+        "legCount": 8,
+        "executableSum": 3.968,
+        "executableEdgeTimesFillableUsd": 13575534674.82,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1780091965649
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+        "rawEdgeBps": 5485,
+        "executableEdgeBps": 5490,
+        "fillableUsd": 296780.35596,
+        "minLegDepthUsd": 49463.39266,
+        "legCount": 6,
+        "executableSum": 4.451,
+        "executableEdgeTimesFillableUsd": 1629324154.22,
+        "status": "rejected",
+        "reason": "duration_too_long_for_short_arb",
+        "timestamp": 1779804395757
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+        "rawEdgeBps": 6055,
+        "executableEdgeBps": 6170,
+        "fillableUsd": 257826.06702,
+        "minLegDepthUsd": 42971.01117,
+        "legCount": 6,
+        "executableSum": 4.383,
+        "executableEdgeTimesFillableUsd": 1590786833.51,
+        "status": "rejected",
+        "reason": "duration_too_long_for_short_arb",
+        "timestamp": 1780091965458
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+        "rawEdgeBps": 5870,
+        "executableEdgeBps": 5910,
+        "fillableUsd": 240950.72976,
+        "minLegDepthUsd": 40158.45496,
+        "legCount": 6,
+        "executableSum": 4.409,
+        "executableEdgeTimesFillableUsd": 1424018812.88,
+        "status": "rejected",
+        "reason": "duration_too_long_for_short_arb",
+        "timestamp": 1779910192559
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+        "rawEdgeBps": 4480,
+        "executableEdgeBps": 4590,
+        "fillableUsd": 293916.79596,
+        "minLegDepthUsd": 48986.13266,
+        "legCount": 6,
+        "executableSum": 4.541,
+        "executableEdgeTimesFillableUsd": 1349078093.46,
+        "status": "rejected",
+        "reason": "multi_winner_or_qualifier_basket",
+        "timestamp": 1779800710726
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "which-candidates-will-advance-to-brazils-presidential-runoff",
+        "rawEdgeBps": 4480,
+        "executableEdgeBps": 4590,
+        "fillableUsd": 293916.79596,
+        "minLegDepthUsd": 48986.13266,
+        "legCount": 6,
+        "executableSum": 4.541,
+        "executableEdgeTimesFillableUsd": 1349078093.46,
+        "status": "rejected",
+        "reason": "duration_too_long_for_short_arb",
+        "timestamp": 1779800779959
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "microstrategy-sell-any-bitcoin-in-2025",
+        "rawEdgeBps": 3520,
+        "executableEdgeBps": 8490,
+        "fillableUsd": 121906.8891,
+        "minLegDepthUsd": 40635.6297,
+        "legCount": 3,
+        "executableSum": 1.151,
+        "executableEdgeTimesFillableUsd": 1034989488.46,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1780091965944
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "starmer-out-in-2025",
+        "rawEdgeBps": 400,
+        "executableEdgeBps": 400,
+        "fillableUsd": 1856326.7532,
+        "minLegDepthUsd": 618775.5844,
+        "legCount": 3,
+        "executableSum": 1.96,
+        "executableEdgeTimesFillableUsd": 742530701.28,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779548899439
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "microstrategy-sell-any-bitcoin-in-2025",
+        "rawEdgeBps": 720,
+        "executableEdgeBps": 3520,
+        "fillableUsd": 202752.2637,
+        "minLegDepthUsd": 67584.0879,
+        "legCount": 3,
+        "executableSum": 1.648,
+        "executableEdgeTimesFillableUsd": 713687968.22,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779910193074
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "microstrategy-sell-any-bitcoin-in-2025",
+        "rawEdgeBps": 3610,
+        "executableEdgeBps": 3610,
+        "fillableUsd": 116425.2867,
+        "minLegDepthUsd": 38808.4289,
+        "legCount": 3,
+        "executableSum": 1.639,
+        "executableEdgeTimesFillableUsd": 420295284.99,
+        "status": "paper_fired",
+        "reason": "paper_trade_recorded",
+        "timestamp": 1779548899250
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "will-russia-capture-kostyantynivka-by",
+        "rawEdgeBps": 4970,
+        "executableEdgeBps": 4910,
+        "fillableUsd": 69930.91616,
+        "minLegDepthUsd": 17482.72904,
+        "legCount": 4,
+        "executableSum": 2.509,
+        "executableEdgeTimesFillableUsd": 343360798.35,
+        "status": "rejected",
+        "reason": "nested_temporal_basket",
+        "timestamp": 1779800711142
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "will-russia-capture-kostyantynivka-by",
+        "rawEdgeBps": 4910,
+        "executableEdgeBps": 4910,
+        "fillableUsd": 69930.91616,
+        "minLegDepthUsd": 17482.72904,
+        "legCount": 4,
+        "executableSum": 2.509,
+        "executableEdgeTimesFillableUsd": 343360798.35,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779800780402
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "will-russia-capture-kostyantynivka-by",
+        "rawEdgeBps": 4910,
+        "executableEdgeBps": 4900,
+        "fillableUsd": 69930.91616,
+        "minLegDepthUsd": 17482.72904,
+        "legCount": 4,
+        "executableSum": 2.51,
+        "executableEdgeTimesFillableUsd": 342661489.18,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779804396138
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "starmer-out-in-2025",
+        "rawEdgeBps": 2210,
+        "executableEdgeBps": 1780,
+        "fillableUsd": 139452.836,
+        "minLegDepthUsd": 27890.5672,
+        "legCount": 5,
+        "executableSum": 3.822,
+        "executableEdgeTimesFillableUsd": 248226048.08,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1780091966027
+      },
+      {
+        "strategy": "neg_risk_bracket_arb",
+        "slug": "will-russia-capture-kostyantynivka-by",
+        "rawEdgeBps": 4900,
+        "executableEdgeBps": 5440,
+        "fillableUsd": 34944.74276,
+        "minLegDepthUsd": 8736.18569,
+        "legCount": 4,
+        "executableSum": 2.456,
+        "executableEdgeTimesFillableUsd": 190099400.61,
+        "status": "rejected",
+        "reason": "unknown_duration_for_short_arb",
+        "timestamp": 1779910192966
+      }
+    ]
+  },
+  "timeAnalysis": {
+    "opportunitiesPerHour": 5.1,
+    "validatedPerHour": 0.02,
+    "rejectedPerHour": 5.01,
+    "hourly": [
+      {
+        "hour": "2026-05-19T21",
+        "opportunities": 41,
+        "validated": 0,
+        "rejected": 41
+      },
+      {
+        "hour": "2026-05-20T05",
+        "opportunities": 40,
+        "validated": 0,
+        "rejected": 40
+      },
+      {
+        "hour": "2026-05-20T06",
+        "opportunities": 224,
+        "validated": 0,
+        "rejected": 224
+      },
+      {
+        "hour": "2026-05-20T16",
+        "opportunities": 20,
+        "validated": 1,
+        "rejected": 0
+      },
+      {
+        "hour": "2026-05-23T15",
+        "opportunities": 621,
+        "validated": 3,
+        "rejected": 618
+      },
+      {
+        "hour": "2026-05-26T13",
+        "opportunities": 115,
+        "validated": 0,
+        "rejected": 115
+      },
+      {
+        "hour": "2026-05-26T14",
+        "opportunities": 57,
+        "validated": 0,
+        "rejected": 57
+      },
+      {
+        "hour": "2026-05-27T19",
+        "opportunities": 55,
+        "validated": 0,
+        "rejected": 55
+      },
+      {
+        "hour": "2026-05-29T21",
+        "opportunities": 56,
+        "validated": 0,
+        "rejected": 56
+      }
+    ]
+  },
+  "paperTrades": [
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "count": 167,
+      "unresolved": 167,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "clear_win_watch",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "within_market_fast_arb",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "count": 0,
+      "unresolved": 0,
+      "resolved": 0,
+      "note": "insufficient resolved sample"
+    }
+  ],
+  "dataQualityWarnings": [
+    "147 paper trade(s) have no opportunity_id link"
+  ],
+  "verdicts": [
+    {
+      "strategy": "within_market_fast_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "within_market_yes_no_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "neg_risk_bracket_arb",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    },
+    {
+      "strategy": "clear_win_watch",
+      "verdict": "NEEDS_FIX",
+      "reason": "Raw opportunities exist, but validation, edge, or data quality is not strong enough."
+    }
+  ]
+}
