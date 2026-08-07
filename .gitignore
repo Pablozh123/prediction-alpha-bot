@@ -3,6 +3,15 @@ dist/
 coverage/
 .cache/
 .tmp/
+# The dashboard runtime writes its stdout/stderr here; the dot-less name was
+# outside every rule above and would have been swept in by `git add -A`.
+tmp/
+
+# Binary summary written for a course hand-in, not repository content.
+*.docx
+
+config/crossVenuePairs.json
+config/crossVenueDiscoveryReview.json
 
 .env
 .env.*
