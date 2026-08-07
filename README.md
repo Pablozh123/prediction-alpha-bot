@@ -1,14 +1,39 @@
 # Prediction Alpha Bot
 
-Paper-only TypeScript/Node.js skeleton for scanning prediction-market opportunities.
+Cross-venue and neg-risk opportunity scanner for Polymarket and Kalshi.
+TypeScript/Node, paper-only, read-only market data. 64 source modules, 239
+tests, and 89 dated report artifacts from live paper runs.
 
-## Project Goal
+## What it found
 
-This repository is the first version of a robust scanner and paper-trading foundation. Scanners can identify and report possible opportunities, while all execution behavior is routed through a central paper-only boundary.
+Over a ten-day run of 3,163 scan cycles, four strategies produced 4,269 raw
+candidates and 4 validated ones. The single largest rejection reason is
+`non_positive_executable_edge`: the edge was present in the quoted prices and
+gone once priced against the order book that would actually have filled it.
+The cross-venue lane read 1,000 Kalshi and 2,478 Polymarket binary markets and
+matched zero pairs above threshold - every near miss was a compound-market
+mismatch that a naive title matcher would have reported as arbitrage.
+
+Details, including the gaps this project knows about itself, are in
+[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). The dated evidence lives in
+[docs/reports](docs/reports).
+
+## What it is
+
+Scanners for within-market YES+NO sums, NEG_RISK bracket structures,
+near-resolution watches, sports resolutions, and cross-venue pairs matched
+through a canonical event model. Order books are served cache-first from
+public websocket ingestors with per-scan telemetry on how many reads were
+live, cached or REST. Separate journals record opportunity legs, orderbook
+snapshots, scanner runs and sports ticks; a paper-resolution module settles
+recorded positions only when the market outcome is known.
 
 ## Paper-Only Status
 
-The project does not support live trading. It contains no real order placement, private-key handling, seed phrases, wallet signing, or exchange execution path.
+The project does not support live trading. Every execution path routes
+through a single boundary that always returns `live: false`. It contains no
+real order placement, private-key handling, seed phrases, wallet signing, or
+exchange execution path.
 
 ## Local Start
 
