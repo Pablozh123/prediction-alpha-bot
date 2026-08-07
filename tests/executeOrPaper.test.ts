@@ -28,6 +28,7 @@ describe("executeOrPaper", () => {
       side: "NO",
       entryPrice: 0.66,
       paperSizeUsd: 10,
+      paperSizeShares: 15.151515,
       arbClass: "neg_risk_bracket_arb"
     });
 
@@ -44,6 +45,7 @@ describe("executeOrPaper", () => {
       tokenId: "token-no",
       side: "NO",
       sizeUsd: 10,
+      sizeShares: 15.151515,
       entryPrice: 0.66,
       arbClass: "neg_risk_bracket_arb"
     });

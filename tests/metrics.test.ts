@@ -161,16 +161,17 @@ describe("health and metrics", () => {
       },
       scanner: async () => [
         {
-          eventSlug: "rate-cuts-2026",
+          eventSlug: "2026-nba-champion",
           sumYes: 1.06,
           threshold: 1.03,
           expectedEdge: 0.03,
+          expectedResolutionAt: Date.now() + 60 * 60 * 1000,
           reason: "needs_orderbook_depth_check",
           legs: [
             {
               marketId: "m1",
-              slug: "zero-cuts",
-              question: "Zero cuts?",
+              slug: "will-the-knicks-win-the-2026-nba-finals",
+              question: "Will the Knicks win the 2026 NBA Finals?",
               yesTokenId: "m1-yes",
               noTokenId: "m1-no",
               yesPrice: 0.4,
@@ -181,18 +182,22 @@ describe("health and metrics", () => {
       ],
       withinMarketScanner: async () => [],
       validateOpportunity: async () => ({
-        eventSlug: "rate-cuts-2026",
+        eventSlug: "2026-nba-champion",
         threshold: 1.03,
         executableSum: 0.6,
         expectedGrossEdge: 0.4,
+        fillableUsd: 100,
+        minLegDepthUsd: 100,
+        legCount: 1,
+        feeAdjustedEdge: 0.4,
         fillable: true,
         valid: true,
         reason: "orderbook_validated",
         legs: [
           {
             marketId: "m1",
-            slug: "zero-cuts",
-            question: "Zero cuts?",
+            slug: "will-the-knicks-win-the-2026-nba-finals",
+            question: "Will the Knicks win the 2026 NBA Finals?",
             tokenId: "m1-no",
             sideToPaperTrade: "NO",
             averageFillPrice: 0.6,
@@ -202,7 +207,29 @@ describe("health and metrics", () => {
             fillable: true,
             reason: "fillable"
           }
-        ]
+        ],
+        basketSizing: {
+          basketSizeShares: 1,
+          basketCostUsd: 0.6,
+          basketPayoutUsd: 1,
+          basketProfitUsd: 0.4,
+          edgePerShare: 0.4,
+          edgeBps: 4_000,
+          roiBps: 6_666.67,
+          maxPositiveBasketShares: 200,
+          maxPositiveBasketCostUsd: 120,
+          maxPositiveBasketPayoutUsd: 200,
+          maxPositiveBasketProfitUsd: 80,
+          legs: [
+            {
+              tokenId: "m1-no",
+              slug: "will-the-knicks-win-the-2026-nba-finals",
+              shares: 1,
+              averageFillPrice: 0.6,
+              costUsd: 0.6
+            }
+          ]
+        }
       })
     });
 

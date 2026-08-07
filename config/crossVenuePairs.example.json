@@ -1,0 +1,23 @@
+{
+  "minNetCents": 0.5,
+  "feesCents": {
+    "kalshi": 0,
+    "polymarket": 0
+  },
+  "pairs": [
+    {
+      "id": "example-fed-cut-25bps",
+      "title": "Example Fed Rate Decision",
+      "outcomeLabel": "25bps cut",
+      "expectedResolutionAt": "2026-03-19T18:00:00Z",
+      "kalshi": {
+        "ticker": "KXFEDDECISION-26MAR-C25"
+      },
+      "polymarket": {
+        "slug": "example-fed-rate-march",
+        "yesTokenId": "replace-with-polymarket-yes-token-id",
+        "noTokenId": "replace-with-polymarket-no-token-id"
+      }
+    }
+  ]
+}

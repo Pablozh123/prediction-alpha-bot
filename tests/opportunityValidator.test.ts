@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   validateNegRiskOpportunity,
-  validateWithinMarketOpportunity
+  validateWithinMarketOpportunity,
 } from "../src/scanner/opportunityValidator.js";
 import type { NegRiskBracketOpportunity } from "../src/scanner/negRiskBracketScanner.js";
 import type { WithinMarketArbOpportunity } from "../src/scanner/withinMarketArbScanner.js";
@@ -19,8 +19,8 @@ describe("validateWithinMarketOpportunity", () => {
           }
 
           return makeOrderBook(0.52, 100);
-        }
-      }
+        },
+      },
     );
 
     expect(result).toMatchObject({
@@ -30,7 +30,7 @@ describe("validateWithinMarketOpportunity", () => {
       askYes: 0.45,
       askNo: 0.52,
       totalCost: 0.97,
-      expectedGrossEdge: 0.03
+      expectedGrossEdge: 0.03,
     });
   });
 
@@ -44,9 +44,9 @@ describe("validateWithinMarketOpportunity", () => {
             return makeOrderBook(0.45, 100);
           }
 
-          return makeOrderBook(0.52, 1);
-        }
-      }
+          return makeOrderBook(0.52, 0.5);
+        },
+      },
     );
 
     expect(result.valid).toBe(false);
@@ -59,61 +59,71 @@ describe("validateWithinMarketOpportunity", () => {
 
 describe("validateNegRiskOpportunity", () => {
   it("validates every NO leg and calculates executable sum", async () => {
-    const result = await validateNegRiskOpportunity(makeNegRiskOpportunity(), 5, {
-      fetchOrderBook: async (tokenId) => {
-        if (tokenId === "m1-no") {
-          return makeOrderBook(0.58, 100);
-        }
+    const result = await validateNegRiskOpportunity(
+      makeNegRiskOpportunity(),
+      5,
+      {
+        fetchOrderBook: async (tokenId) => {
+          if (tokenId === "m1-no") {
+            return makeOrderBook(0.58, 100);
+          }
 
-        if (tokenId === "m2-no") {
-          return makeOrderBook(0.61, 100);
-        }
+          if (tokenId === "m2-no") {
+            return makeOrderBook(0.61, 100);
+          }
 
-        return makeOrderBook(0.63, 100);
-      }
-    });
+          return makeOrderBook(0.63, 100);
+        },
+      },
+    );
 
     expect(result).toMatchObject({
       valid: true,
       fillable: true,
       reason: "orderbook_validated",
       executableSum: 1.82,
-      expectedGrossEdge: 0.18
+      expectedGrossEdge: 0.18,
     });
   });
 
   it("rejects a partial NEG_RISK basket when any leg is not fillable", async () => {
-    const result = await validateNegRiskOpportunity(makeNegRiskOpportunity(), 5, {
-      fetchOrderBook: async (tokenId) => {
-        if (tokenId === "m2-no") {
-          return makeOrderBook(0.61, 1);
-        }
+    const result = await validateNegRiskOpportunity(
+      makeNegRiskOpportunity(),
+      5,
+      {
+        fetchOrderBook: async (tokenId) => {
+          if (tokenId === "m2-no") {
+            return makeOrderBook(0.61, 0.5);
+          }
 
-        return makeOrderBook(0.6, 100);
-      }
-    });
+          return makeOrderBook(0.6, 100);
+        },
+      },
+    );
 
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("partial_basket_invalid");
-    expect(result.legs.map((leg) => leg.fillable)).toEqual([
-      true,
-      false,
-      true
-    ]);
+    expect(result.legs.map((leg) => leg.fillable)).toEqual([true, false, true]);
   });
 
   it("treats orderbook fetch errors as non-fillable without throwing", async () => {
-    const fetchOrderBook = vi.fn(async (tokenId: string): Promise<OrderBook> => {
-      if (tokenId === "m1-no") {
-        throw new Error("book unavailable");
-      }
+    const fetchOrderBook = vi.fn(
+      async (tokenId: string): Promise<OrderBook> => {
+        if (tokenId === "m1-no") {
+          throw new Error("book unavailable");
+        }
 
-      return makeOrderBook(0.6, 100);
-    });
+        return makeOrderBook(0.6, 100);
+      },
+    );
 
-    const result = await validateNegRiskOpportunity(makeNegRiskOpportunity(), 5, {
-      fetchOrderBook
-    });
+    const result = await validateNegRiskOpportunity(
+      makeNegRiskOpportunity(),
+      5,
+      {
+        fetchOrderBook,
+      },
+    );
 
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("partial_basket_invalid");
@@ -124,7 +134,7 @@ describe("validateNegRiskOpportunity", () => {
     const { readFile } = await import("node:fs/promises");
     const source = await readFile(
       "src/scanner/opportunityValidator.ts",
-      "utf8"
+      "utf8",
     );
 
     expect(source).not.toContain("@polymarket/clob-client");
@@ -138,7 +148,7 @@ describe("validateNegRiskOpportunity", () => {
 function makeOrderBook(price: number, size: number): OrderBook {
   return {
     bids: [{ price: price - 0.02, size }],
-    asks: [{ price, size }]
+    asks: [{ price, size }],
   };
 }
 
@@ -152,9 +162,9 @@ function makeWithinMarketOpportunity(): WithinMarketArbOpportunity {
     expectedEdge: 0,
     tokenIds: {
       yes: "yes-token",
-      no: "no-token"
+      no: "no-token",
     },
-    reason: "yes_no_ask_sum_below_threshold"
+    reason: "yes_no_ask_sum_below_threshold",
   };
 }
 
@@ -173,7 +183,7 @@ function makeNegRiskOpportunity(): NegRiskBracketOpportunity {
         yesTokenId: "m1-yes",
         noTokenId: "m1-no",
         yesPrice: 0.42,
-        sideToPaperTrade: "NO"
+        sideToPaperTrade: "NO",
       },
       {
         marketId: "m2",
@@ -182,7 +192,7 @@ function makeNegRiskOpportunity(): NegRiskBracketOpportunity {
         yesTokenId: "m2-yes",
         noTokenId: "m2-no",
         yesPrice: 0.39,
-        sideToPaperTrade: "NO"
+        sideToPaperTrade: "NO",
       },
       {
         marketId: "m3",
@@ -191,8 +201,8 @@ function makeNegRiskOpportunity(): NegRiskBracketOpportunity {
         yesTokenId: "m3-yes",
         noTokenId: "m3-no",
         yesPrice: 0.25,
-        sideToPaperTrade: "NO"
-      }
-    ]
+        sideToPaperTrade: "NO",
+      },
+    ],
   };
 }

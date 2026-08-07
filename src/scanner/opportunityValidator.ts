@@ -3,9 +3,14 @@ import type { WithinMarketArbOpportunity } from "./withinMarketArbScanner.js";
 import {
   fetchOrderBook,
   getBestBidAsk,
+  walkAsksForShares,
   walkAsksForSize,
-  type OrderBook
+  type OrderBook,
 } from "../utils/orderbook.js";
+import {
+  calculateNegRiskBasketSizing,
+  type NegRiskBasketSizing,
+} from "./basketSizing.js";
 
 export type OpportunityValidationReason =
   | "orderbook_validated"
@@ -20,6 +25,7 @@ export type ValidatedTokenAsk = {
   bestBid: number | null;
   bestAsk: number | null;
   reason: "fillable" | "not_fillable" | "orderbook_error";
+  orderbook?: OrderBook;
 };
 
 export type ValidatedWithinMarketOpportunity = {
@@ -33,6 +39,11 @@ export type ValidatedWithinMarketOpportunity = {
   askNo: number | null;
   totalCost: number | null;
   expectedGrossEdge: number | null;
+  fillableUsd: number;
+  minLegDepthUsd: number;
+  legCount: number;
+  executableSum: number | null;
+  feeAdjustedEdge: number | null;
   fillable: boolean;
   valid: boolean;
   reason: OpportunityValidationReason;
@@ -52,6 +63,7 @@ export type ValidatedNegRiskLeg = {
   bestAsk: number | null;
   fillable: boolean;
   reason: ValidatedTokenAsk["reason"];
+  orderbook?: OrderBook;
 };
 
 export type ValidatedNegRiskOpportunity = {
@@ -59,6 +71,11 @@ export type ValidatedNegRiskOpportunity = {
   threshold: number;
   executableSum: number | null;
   expectedGrossEdge: number | null;
+  fillableUsd: number;
+  minLegDepthUsd: number;
+  legCount: number;
+  feeAdjustedEdge: number | null;
+  basketSizing?: NegRiskBasketSizing | null;
   fillable: boolean;
   valid: boolean;
   reason: OpportunityValidationReason;
@@ -72,7 +89,7 @@ export type OpportunityValidatorOptions = {
 export async function validateWithinMarketOpportunity(
   opportunity: WithinMarketArbOpportunity,
   targetSizeUsd: number,
-  options: OpportunityValidatorOptions = {}
+  options: OpportunityValidatorOptions = {},
 ): Promise<ValidatedWithinMarketOpportunity> {
   const fetchBook = options.fetchOrderBook ?? fetchOrderBook;
   const yesTokenId = opportunity.tokenIds.yes;
@@ -90,23 +107,33 @@ export async function validateWithinMarketOpportunity(
       askNo: null,
       totalCost: null,
       expectedGrossEdge: null,
+      fillableUsd: 0,
+      minLegDepthUsd: 0,
+      legCount: 2,
+      executableSum: null,
+      feeAdjustedEdge: null,
       fillable: false,
       valid: false,
       reason: "invalid_token_ids",
       yes: emptyYes,
-      no: emptyNo
+      no: emptyNo,
     };
   }
 
   const [yes, no] = await Promise.all([
     validateTokenAsk(yesTokenId, targetSizeUsd, fetchBook),
-    validateTokenAsk(noTokenId, targetSizeUsd, fetchBook)
+    validateTokenAsk(noTokenId, targetSizeUsd, fetchBook),
   ]);
   const fillable = yes.fillable && no.fillable;
   const totalCost =
     yes.averageFillPrice === null || no.averageFillPrice === null
       ? null
       : roundPrice(yes.averageFillPrice + no.averageFillPrice);
+  const expectedGrossEdge =
+    totalCost === null ? null : roundPrice(1 - totalCost);
+  const minLegDepthUsd = roundPrice(
+    Math.min(yes.maxFillableUsd, no.maxFillableUsd),
+  );
 
   return {
     slug: opportunity.slug,
@@ -115,19 +142,24 @@ export async function validateWithinMarketOpportunity(
     askYes: yes.averageFillPrice,
     askNo: no.averageFillPrice,
     totalCost,
-    expectedGrossEdge: totalCost === null ? null : roundPrice(1 - totalCost),
+    expectedGrossEdge,
+    fillableUsd: roundPrice(minLegDepthUsd * 2),
+    minLegDepthUsd,
+    legCount: 2,
+    executableSum: totalCost,
+    feeAdjustedEdge: expectedGrossEdge,
     fillable,
     valid: fillable,
     reason: fillable ? "orderbook_validated" : "partial_basket_invalid",
     yes,
-    no
+    no,
   };
 }
 
 export async function validateNegRiskOpportunity(
   opportunity: NegRiskBracketOpportunity,
   targetSizeUsd: number,
-  options: OpportunityValidatorOptions = {}
+  options: OpportunityValidatorOptions = {},
 ): Promise<ValidatedNegRiskOpportunity> {
   const fetchBook = options.fetchOrderBook ?? fetchOrderBook;
   const validations = await Promise.all(
@@ -148,59 +180,78 @@ export async function validateNegRiskOpportunity(
         bestBid: validation.bestBid,
         bestAsk: validation.bestAsk,
         fillable: validation.fillable,
-        reason: validation.reason
+        reason: validation.reason,
+        orderbook: validation.orderbook,
       };
-    })
+    }),
   );
   const fillable = validations.every((leg) => leg.fillable);
-  const executableSum = validations.every((leg) => leg.averageFillPrice !== null)
+  const executableSum = validations.every(
+    (leg) => leg.averageFillPrice !== null,
+  )
     ? roundPrice(
-        validations.reduce(
-          (sum, leg) => sum + (leg.averageFillPrice ?? 0),
-          0
-        )
+        validations.reduce((sum, leg) => sum + (leg.averageFillPrice ?? 0), 0),
       )
     : null;
   const expectedGrossEdge =
     executableSum === null
       ? null
       : roundPrice(opportunity.legs.length - 1 - executableSum);
+  const minLegDepthUsd =
+    validations.length === 0
+      ? 0
+      : roundPrice(Math.min(...validations.map((leg) => leg.maxFillableUsd)));
 
   return {
     eventSlug: opportunity.eventSlug,
     threshold: opportunity.threshold,
     executableSum,
     expectedGrossEdge,
+    fillableUsd: roundPrice(minLegDepthUsd * validations.length),
+    minLegDepthUsd,
+    legCount: validations.length,
+    feeAdjustedEdge: expectedGrossEdge,
+    basketSizing: fillable
+      ? calculateNegRiskBasketSizing(
+          validations.map((leg) => ({
+            tokenId: leg.tokenId,
+            slug: leg.slug,
+            orderbook: leg.orderbook,
+          })),
+        )
+      : null,
     fillable,
     valid: fillable,
     reason: fillable ? "orderbook_validated" : "partial_basket_invalid",
-    legs: validations
+    legs: validations,
   };
 }
 
 async function validateTokenAsk(
   tokenId: string,
   targetSizeUsd: number,
-  fetchBook: (tokenId: string) => Promise<OrderBook>
+  fetchBook: (tokenId: string) => Promise<OrderBook>,
 ): Promise<ValidatedTokenAsk> {
   try {
     const orderbook = await fetchBook(tokenId);
     const best = getBestBidAsk(orderbook);
-    const walk = walkAsksForSize(orderbook, targetSizeUsd);
+    const sizeWalk = walkAsksForSize(orderbook, targetSizeUsd);
+    const shareWalk = walkAsksForShares(orderbook, 1);
 
     return {
       tokenId,
-      fillable: walk.fillable,
-      averageFillPrice: walk.averageFillPrice,
-      maxFillableUsd: walk.maxFillableUsd,
+      fillable: shareWalk.fillable,
+      averageFillPrice: shareWalk.averageFillPrice ?? sizeWalk.averageFillPrice,
+      maxFillableUsd: sizeWalk.maxFillableUsd,
       bestBid: best.bestBid,
       bestAsk: best.bestAsk,
-      reason: walk.fillable ? "fillable" : "not_fillable"
+      reason: shareWalk.fillable ? "fillable" : "not_fillable",
+      orderbook,
     };
   } catch {
     return {
       ...emptyTokenValidation(tokenId),
-      reason: "orderbook_error"
+      reason: "orderbook_error",
     };
   }
 }
@@ -213,7 +264,7 @@ function emptyTokenValidation(tokenId: string): ValidatedTokenAsk {
     maxFillableUsd: 0,
     bestBid: null,
     bestAsk: null,
-    reason: "not_fillable"
+    reason: "not_fillable",
   };
 }
 

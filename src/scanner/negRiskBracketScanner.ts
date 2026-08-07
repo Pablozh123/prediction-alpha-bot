@@ -1,8 +1,12 @@
 import {
   fetchNegRiskEvents,
   normalizeGammaMarket,
-  type GammaRawEvent
+  type GammaRawEvent,
 } from "../utils/gamma.js";
+import {
+  deriveExpectedResolutionAt,
+  latestKnownResolutionAt,
+} from "../utils/marketTime.js";
 
 export const DEFAULT_NEG_RISK_SUM_THRESHOLD = 1.03;
 
@@ -10,18 +14,22 @@ export type NegRiskBracketLeg = {
   marketId: string;
   slug: string;
   question: string;
-  yesTokenId: string;
+  yesTokenId: string | null;
   noTokenId: string;
-  yesPrice: number;
+  yesPrice: number | null;
+  expectedResolutionAt?: number | null;
   sideToPaperTrade: "NO";
 };
 
 export type NegRiskBracketOpportunity = {
   eventSlug: string;
-  sumYes: number;
+  sumYes: number | null;
   threshold: number;
   expectedEdge: number;
-  reason: "needs_orderbook_depth_check";
+  expectedResolutionAt?: number | null;
+  reason:
+    | "needs_orderbook_depth_check"
+    | "snapshot_no_basket_positive_edge_limited_coverage";
   legs: NegRiskBracketLeg[];
 };
 
@@ -30,30 +38,34 @@ export type ScanNegRiskBracketOptions = {
   warn?: (message: string) => void;
 };
 
-export async function scanNegRiskBracketOpportunities(options: {
-  limit?: number;
-  threshold?: number;
-  warn?: (message: string) => void;
-} = {}): Promise<NegRiskBracketOpportunity[]> {
+export async function scanNegRiskBracketOpportunities(
+  options: {
+    limit?: number;
+    threshold?: number;
+    warn?: (message: string) => void;
+  } = {},
+): Promise<NegRiskBracketOpportunity[]> {
   const events = await fetchNegRiskEvents(options.limit);
 
   return scanNegRiskBracketEvents(events, {
     threshold: options.threshold,
-    warn: options.warn
+    warn: options.warn,
   });
 }
 
-export async function scanNegRiskBracketArbs(options: {
-  limit?: number;
-  threshold?: number;
-  warn?: (message: string) => void;
-} = {}): Promise<NegRiskBracketOpportunity[]> {
+export async function scanNegRiskBracketArbs(
+  options: {
+    limit?: number;
+    threshold?: number;
+    warn?: (message: string) => void;
+  } = {},
+): Promise<NegRiskBracketOpportunity[]> {
   return scanNegRiskBracketOpportunities(options);
 }
 
 export function scanNegRiskBracketEvents(
   events: GammaRawEvent[],
-  options: ScanNegRiskBracketOptions = {}
+  options: ScanNegRiskBracketOptions = {},
 ): NegRiskBracketOpportunity[] {
   const threshold = options.threshold ?? DEFAULT_NEG_RISK_SUM_THRESHOLD;
   const warn = options.warn ?? console.warn;
@@ -61,6 +73,7 @@ export function scanNegRiskBracketEvents(
 
   for (const event of events) {
     const eventSlug = getOptionalString(event.slug);
+    const eventResolutionAt = deriveExpectedResolutionAt(event);
     const markets = Array.isArray(event.markets) ? event.markets : [];
 
     if (!eventSlug) {
@@ -70,7 +83,7 @@ export function scanNegRiskBracketEvents(
 
     if (markets.length < 3) {
       warn(
-        `Skipping NEG_RISK event "${eventSlug}": expected at least 3 markets, got ${markets.length}.`
+        `Skipping NEG_RISK event "${eventSlug}": expected at least 3 markets, got ${markets.length}.`,
       );
       continue;
     }
@@ -81,7 +94,7 @@ export function scanNegRiskBracketEvents(
     for (const rawMarket of markets) {
       try {
         const market = normalizeGammaMarket(rawMarket);
-        const leg = normalizeBracketLeg(market);
+        const leg = normalizeBracketLeg(market, eventResolutionAt);
         legs.push(leg);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
@@ -95,16 +108,23 @@ export function scanNegRiskBracketEvents(
       continue;
     }
 
-    const sumYes = roundPrice(legs.reduce((sum, leg) => sum + leg.yesPrice, 0));
+    const sumYes = roundPrice(
+      legs.reduce((sum, leg) => sum + (leg.yesPrice ?? 0), 0),
+    );
 
     if (sumYes > threshold) {
+      const expectedResolutionAt = latestKnownResolutionAt(
+        legs.map((leg) => leg.expectedResolutionAt),
+      );
+
       opportunities.push({
         eventSlug,
         sumYes,
         threshold,
         expectedEdge: roundPrice(sumYes - threshold),
+        ...(expectedResolutionAt ? { expectedResolutionAt } : {}),
         reason: "needs_orderbook_depth_check",
-        legs
+        legs,
       });
     }
   }
@@ -118,10 +138,12 @@ type NormalizedMarketForBracket = {
   question: string;
   clobTokenIds: string[];
   outcomePrices: string[];
+  expectedResolutionAt?: number | null;
 };
 
 function normalizeBracketLeg(
-  market: NormalizedMarketForBracket
+  market: NormalizedMarketForBracket,
+  eventResolutionAt: number | null,
 ): NegRiskBracketLeg {
   if (!market.id) {
     throw new Error("market missing id.");
@@ -154,7 +176,10 @@ function normalizeBracketLeg(
     yesTokenId,
     noTokenId,
     yesPrice,
-    sideToPaperTrade: "NO"
+    ...((market.expectedResolutionAt ?? eventResolutionAt)
+      ? { expectedResolutionAt: market.expectedResolutionAt ?? eventResolutionAt }
+      : {}),
+    sideToPaperTrade: "NO",
   };
 }
 

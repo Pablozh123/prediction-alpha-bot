@@ -34,6 +34,20 @@ export type WalkAsksResult = {
   requestedSizeUsd: number;
 };
 
+export type WalkAsksForSharesResult = {
+  fillable: boolean;
+  averageFillPrice: number | null;
+  costUsd: number;
+  requestedShares: number;
+};
+
+export type WalkBidsForSharesResult = {
+  fillable: boolean;
+  averageFillPrice: number | null;
+  proceedsUsd: number;
+  requestedShares: number;
+};
+
 type RawOrderBookLevel =
   | {
       price?: unknown;
@@ -153,6 +167,83 @@ export function walkAsksForSize(
   };
 }
 
+export function walkAsksForShares(
+  orderbook: OrderBook,
+  shares: number
+): WalkAsksForSharesResult {
+  if (!Number.isFinite(shares) || shares <= 0) {
+    return {
+      fillable: false,
+      averageFillPrice: null,
+      costUsd: 0,
+      requestedShares: shares
+    };
+  }
+
+  const asks = orderbook.asks
+    .filter(isValidLevel)
+    .sort((left, right) => left.price - right.price);
+  let remainingShares = shares;
+  let costUsd = 0;
+
+  for (const level of asks) {
+    if (remainingShares <= 0) {
+      break;
+    }
+
+    const sharesAtLevel = Math.min(remainingShares, level.size);
+    costUsd += sharesAtLevel * level.price;
+    remainingShares -= sharesAtLevel;
+  }
+
+  return {
+    fillable: remainingShares <= 1e-9,
+    averageFillPrice:
+      remainingShares <= 1e-9 ? roundPrice(costUsd / shares) : null,
+    costUsd: roundUsd(costUsd),
+    requestedShares: shares
+  };
+}
+
+export function walkBidsForShares(
+  orderbook: OrderBook,
+  shares: number
+): WalkBidsForSharesResult {
+  if (!Number.isFinite(shares) || shares <= 0) {
+    return {
+      fillable: false,
+      averageFillPrice: null,
+      proceedsUsd: 0,
+      requestedShares: shares
+    };
+  }
+
+  const bids = orderbook.bids
+    .filter(isValidLevel)
+    .sort((left, right) => right.price - left.price);
+  let remainingShares = shares;
+  let proceedsUsd = 0;
+
+  for (const level of bids) {
+    if (remainingShares <= 0) {
+      break;
+    }
+
+    const sharesAtLevel = Math.min(remainingShares, level.size);
+
+    proceedsUsd += sharesAtLevel * level.price;
+    remainingShares -= sharesAtLevel;
+  }
+
+  return {
+    fillable: remainingShares <= 1e-9,
+    averageFillPrice:
+      remainingShares <= 1e-9 ? roundPrice(proceedsUsd / shares) : null,
+    proceedsUsd: roundUsd(proceedsUsd),
+    requestedShares: shares
+  };
+}
+
 function normalizeOrderBook(raw: RawOrderBook, fallbackTokenId: string): OrderBook {
   return {
     tokenId: optionalString(raw.token_id) || optionalString(raw.asset_id) || fallbackTokenId,
@@ -218,5 +309,5 @@ function roundPrice(value: number): number {
 }
 
 function roundUsd(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
 }

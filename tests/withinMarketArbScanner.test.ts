@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   ExecuteOrPaperInput,
-  ExecuteOrPaperResult
+  ExecuteOrPaperResult,
 } from "../src/execution/executeOrPaper.js";
 import {
   DEFAULT_WITHIN_MARKET_ARB_THRESHOLD,
+  DEFAULT_WITHIN_MARKET_WATCH_THRESHOLD,
   paperWithinMarketArbOpportunity,
   scanWithinMarketArbs,
+  scanWithinMarketSnapshotOpportunities,
   WITHIN_MARKET_ARB_STRATEGY,
-  type WithinMarketArbMarket
+  type WithinMarketSnapshotRow,
+  type WithinMarketArbMarket,
 } from "../src/scanner/withinMarketArbScanner.js";
 
 describe("scanWithinMarketArbs", () => {
@@ -17,9 +20,9 @@ describe("scanWithinMarketArbs", () => {
       scanWithinMarketArbs([
         makeMarket({
           askYes: 0.45,
-          askNo: 0.52
-        })
-      ])
+          askNo: 0.52,
+        }),
+      ]),
     ).toEqual([
       {
         slug: "binary-market",
@@ -30,10 +33,10 @@ describe("scanWithinMarketArbs", () => {
         expectedEdge: 0.03,
         tokenIds: {
           yes: "yes-token",
-          no: "no-token"
+          no: "no-token",
         },
-        reason: "yes_no_ask_sum_below_threshold"
-      }
+        reason: "yes_no_ask_sum_below_threshold",
+      },
     ]);
   });
 
@@ -42,13 +45,13 @@ describe("scanWithinMarketArbs", () => {
       scanWithinMarketArbs([
         makeMarket({
           askYes: 0.49,
-          askNo: 0.49
+          askNo: 0.49,
         }),
         makeMarket({
           askYes: 0.5,
-          askNo: 0.49
-        })
-      ])
+          askNo: 0.49,
+        }),
+      ]),
     ).toEqual([]);
   });
 
@@ -58,11 +61,11 @@ describe("scanWithinMarketArbs", () => {
         [
           makeMarket({
             askYes: 0.49,
-            askNo: 0.49
-          })
+            askNo: 0.49,
+          }),
         ],
-        { threshold: 0.99 }
-      )
+        { threshold: 0.99 },
+      ),
     ).toHaveLength(1);
   });
 
@@ -74,19 +77,84 @@ describe("scanWithinMarketArbs", () => {
         [
           makeMarket({
             askYes: 0,
-            askNo: 0.5
-          })
+            askNo: 0.5,
+          }),
         ],
-        { warn }
-      )
+        { warn },
+      ),
     ).toEqual([]);
     expect(warn).toHaveBeenCalledWith(
-      'Skipping within-market arb candidate "binary-market": invalid market fields.'
+      'Skipping within-market arb candidate "binary-market": invalid market fields.',
     );
   });
 
   it("uses the documented default threshold", () => {
     expect(DEFAULT_WITHIN_MARKET_ARB_THRESHOLD).toBe(0.98);
+    expect(DEFAULT_WITHIN_MARKET_WATCH_THRESHOLD).toBe(1.01);
+  });
+
+  it("finds snapshot-derived YES+NO candidates below the threshold", () => {
+    expect(
+      scanWithinMarketSnapshotOpportunities({
+        snapshots: [
+          makeSnapshot({ side: "YES", bestAsk: 0.45, capturedAt: 1_000 }),
+          makeSnapshot({
+            tokenId: "no-token",
+            side: "NO",
+            bestAsk: 0.52,
+            expectedResolutionAt: 2_000,
+            capturedAt: 1_100,
+          }),
+        ],
+      }),
+    ).toEqual([
+      {
+        slug: "binary-market",
+        question: "binary-market",
+        askYes: 0.45,
+        askNo: 0.52,
+        totalCost: 0.97,
+        expectedEdge: 0.03,
+        expectedResolutionAt: 2_000,
+        tokenIds: {
+          yes: "yes-token",
+          no: "no-token",
+        },
+        reason: "yes_no_ask_sum_below_threshold",
+      },
+    ]);
+  });
+
+  it("ignores snapshot candidates with a missing side", () => {
+    expect(
+      scanWithinMarketSnapshotOpportunities({
+        snapshots: [
+          makeSnapshot({ side: "YES", bestAsk: 0.45 }),
+          makeSnapshot({
+            tokenId: "other-yes-token",
+            side: "YES",
+            bestAsk: 0.52,
+          }),
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("ignores stale snapshot side pairs", () => {
+    expect(
+      scanWithinMarketSnapshotOpportunities({
+        maxStalenessMs: 600_000,
+        snapshots: [
+          makeSnapshot({ side: "YES", bestAsk: 0.45, capturedAt: 1_000 }),
+          makeSnapshot({
+            tokenId: "no-token",
+            side: "NO",
+            bestAsk: 0.52,
+            capturedAt: 700_000,
+          }),
+        ],
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -95,37 +163,40 @@ describe("paperWithinMarketArbOpportunity", () => {
     const [opportunity] = scanWithinMarketArbs([
       makeMarket({
         askYes: 0.45,
-        askNo: 0.52
-      })
+        askNo: 0.52,
+      }),
     ]);
     const execute = vi.fn(
       (input: ExecuteOrPaperInput): ExecuteOrPaperResult => ({
-      paper: true,
-      live: false,
-      reason: "paper_only" as const,
-      paperTrade: {
-        id: `${input.side}-trade`,
-        strategy: input.strategy,
-        slug: input.slug ?? null,
-        question: input.question ?? null,
-        tokenId: input.tokenId,
-        opportunityId: input.opportunityId ?? null,
-        side: input.side,
-        sizeUsd: input.paperSizeUsd,
-        entryPrice: input.entryPrice,
-        exitPrice: null,
-        resolved: false,
-        pnl: null,
-        inflationFlagged: false,
-        arbClass: input.arbClass ?? null,
-        timestamp: 1,
-        resolvedAt: null
-      }
-    }));
+        paper: true,
+        live: false,
+        reason: "paper_only" as const,
+        paperTrade: {
+          id: `${input.side}-trade`,
+          strategy: input.strategy,
+          slug: input.slug ?? null,
+          question: input.question ?? null,
+          tokenId: input.tokenId,
+          opportunityId: input.opportunityId ?? null,
+          side: input.side,
+          sizeUsd: input.paperSizeUsd,
+          sizeShares: input.paperSizeShares ?? null,
+          entryPrice: input.entryPrice,
+          exitPrice: null,
+          resolved: false,
+          pnl: null,
+          inflationFlagged: false,
+          resolutionReason: null,
+          arbClass: input.arbClass ?? null,
+          timestamp: 1,
+          resolvedAt: null,
+        },
+      }),
+    );
 
     const results = paperWithinMarketArbOpportunity(opportunity!, {
       execute,
-      paperSizeUsd: 2
+      paperSizeUsd: 2,
     });
 
     expect(results).toHaveLength(2);
@@ -137,7 +208,7 @@ describe("paperWithinMarketArbOpportunity", () => {
       side: "YES",
       entryPrice: 0.45,
       paperSizeUsd: 2,
-      arbClass: WITHIN_MARKET_ARB_STRATEGY
+      arbClass: WITHIN_MARKET_ARB_STRATEGY,
     });
     expect(execute).toHaveBeenNthCalledWith(2, {
       strategy: WITHIN_MARKET_ARB_STRATEGY,
@@ -147,7 +218,7 @@ describe("paperWithinMarketArbOpportunity", () => {
       side: "NO",
       entryPrice: 0.52,
       paperSizeUsd: 2,
-      arbClass: WITHIN_MARKET_ARB_STRATEGY
+      arbClass: WITHIN_MARKET_ARB_STRATEGY,
     });
   });
 
@@ -155,7 +226,7 @@ describe("paperWithinMarketArbOpportunity", () => {
     const { readFile } = await import("node:fs/promises");
     const source = await readFile(
       "src/scanner/withinMarketArbScanner.ts",
-      "utf8"
+      "utf8",
     );
 
     expect(source).not.toContain("@polymarket/clob-client");
@@ -168,7 +239,7 @@ describe("paperWithinMarketArbOpportunity", () => {
 });
 
 function makeMarket(
-  overrides: Partial<WithinMarketArbMarket> = {}
+  overrides: Partial<WithinMarketArbMarket> = {},
 ): WithinMarketArbMarket {
   return {
     slug: "binary-market",
@@ -177,8 +248,23 @@ function makeMarket(
     askNo: 0.5,
     tokenIds: {
       yes: "yes-token",
-      no: "no-token"
+      no: "no-token",
     },
-    ...overrides
+    ...overrides,
+  };
+}
+
+function makeSnapshot(
+  overrides: Partial<WithinMarketSnapshotRow> = {},
+): WithinMarketSnapshotRow {
+  return {
+    tokenId: "yes-token",
+    marketSlug: "binary-market",
+    marketId: "market-1",
+    side: "YES",
+    asks: [{ price: 0.45, size: 10 }],
+    bestAsk: null,
+    capturedAt: 1_000,
+    ...overrides,
   };
 }

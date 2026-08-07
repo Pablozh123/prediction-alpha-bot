@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
+import axios from "axios";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchActiveEvents,
   normalizeGammaMarket,
   parseJsonArrayField
 } from "../src/utils/gamma.js";
+
+vi.mock("axios", () => ({
+  default: {
+    get: vi.fn()
+  }
+}));
+
+beforeEach(() => {
+  vi.mocked(axios.get).mockReset();
+});
 
 describe("parseJsonArrayField", () => {
   it("parses JSON array strings", () => {
@@ -28,6 +40,39 @@ describe("parseJsonArrayField", () => {
   });
 });
 
+describe("fetchActiveEvents", () => {
+  it("paginates active Gamma events when the requested limit exceeds one page", async () => {
+    const get = vi.mocked(axios.get);
+
+    get.mockResolvedValueOnce({
+      data: Array.from({ length: 100 }, (_, index) => ({ id: `page-1-${index}` }))
+    });
+    get.mockResolvedValueOnce({
+      data: Array.from({ length: 50 }, (_, index) => ({ id: `page-2-${index}` }))
+    });
+
+    await expect(fetchActiveEvents(150)).resolves.toHaveLength(150);
+    expect(get).toHaveBeenNthCalledWith(1, "https://gamma-api.polymarket.com/events", {
+      params: {
+        active: true,
+        closed: false,
+        limit: 100,
+        offset: 0
+      },
+      timeout: 10_000
+    });
+    expect(get).toHaveBeenNthCalledWith(2, "https://gamma-api.polymarket.com/events", {
+      params: {
+        active: true,
+        closed: false,
+        limit: 50,
+        offset: 100
+      },
+      timeout: 10_000
+    });
+  });
+});
+
 describe("normalizeGammaMarket", () => {
   it("normalizes JSON-string fields from Gamma market data", () => {
     expect(
@@ -35,6 +80,8 @@ describe("normalizeGammaMarket", () => {
         id: "market-1",
         slug: "example-market",
         question: "Will the example happen?",
+        description: "This market resolves Yes if the example happens.",
+        resolutionSource: "Official source",
         negRisk: true,
         clobTokenIds: '["token-yes","token-no"]',
         outcomes: '["Yes","No"]',
@@ -44,6 +91,8 @@ describe("normalizeGammaMarket", () => {
       id: "market-1",
       slug: "example-market",
       question: "Will the example happen?",
+      description: "This market resolves Yes if the example happens.",
+      resolutionSource: "Official source",
       negRisk: true,
       clobTokenIds: ["token-yes", "token-no"],
       outcomes: ["Yes", "No"],

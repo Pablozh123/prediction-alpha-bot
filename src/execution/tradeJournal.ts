@@ -7,6 +7,7 @@ export type RecordPaperTradeInput = {
   strategy: string;
   side: PaperTradeSide;
   sizeUsd: number;
+  sizeShares?: number;
   entryPrice: number;
   slug?: string;
   question?: string;
@@ -25,11 +26,13 @@ export type PaperTrade = {
   opportunityId: string | null;
   side: PaperTradeSide;
   sizeUsd: number;
+  sizeShares: number | null;
   entryPrice: number;
   exitPrice: number | null;
   resolved: boolean;
   pnl: number | null;
   inflationFlagged: boolean;
+  resolutionReason: string | null;
   arbClass: string | null;
   timestamp: number;
   resolvedAt: number | null;
@@ -44,11 +47,13 @@ type PaperTradeRow = {
   opportunity_id: string | null;
   side: PaperTradeSide;
   size_usd: number;
+  size_shares: number | null;
   entry_price: number;
   exit_price: number | null;
   resolved: number;
   pnl: number | null;
   inflation_flagged: number;
+  resolution_reason: string | null;
   arb_class: string | null;
   timestamp: number;
   resolved_at: number | null;
@@ -64,11 +69,13 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
     opportunityId: input.opportunityId ?? null,
     side: input.side,
     sizeUsd: input.sizeUsd,
+    sizeShares: input.sizeShares ?? null,
     entryPrice: input.entryPrice,
     exitPrice: null,
     resolved: false,
     pnl: null,
     inflationFlagged: false,
+    resolutionReason: null,
     arbClass: input.arbClass ?? null,
     timestamp: input.timestamp ?? Date.now(),
     resolvedAt: null
@@ -86,11 +93,13 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
         opportunity_id,
         side,
         size_usd,
+        size_shares,
         entry_price,
         exit_price,
         resolved,
         pnl,
         inflation_flagged,
+        resolution_reason,
         arb_class,
         timestamp,
         resolved_at
@@ -103,11 +112,13 @@ export function recordPaperTrade(input: RecordPaperTradeInput): PaperTrade {
         @opportunityId,
         @side,
         @sizeUsd,
+        @sizeShares,
         @entryPrice,
         @exitPrice,
         @resolved,
         @pnl,
         @inflationFlagged,
+        @resolutionReason,
         @arbClass,
         @timestamp,
         @resolvedAt
@@ -136,11 +147,13 @@ export function listRecentPaperTrades(limit: number): PaperTrade[] {
         opportunity_id,
         side,
         size_usd,
+        size_shares,
         entry_price,
         exit_price,
         resolved,
         pnl,
         inflation_flagged,
+        resolution_reason,
         arb_class,
         timestamp,
         resolved_at
@@ -164,11 +177,13 @@ function mapPaperTradeRow(row: PaperTradeRow): PaperTrade {
     opportunityId: row.opportunity_id,
     side: row.side,
     sizeUsd: row.size_usd,
+    sizeShares: row.size_shares,
     entryPrice: row.entry_price,
     exitPrice: row.exit_price,
     resolved: row.resolved === 1,
     pnl: row.pnl,
     inflationFlagged: row.inflation_flagged === 1,
+    resolutionReason: row.resolution_reason,
     arbClass: row.arb_class,
     timestamp: row.timestamp,
     resolvedAt: row.resolved_at

@@ -1,8 +1,11 @@
 import axios from "axios";
+import { deriveExpectedResolutionAt } from "./marketTime.js";
 import { retryWithBackoff, withTimeout } from "./reliability.js";
 
 const GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events";
+const GAMMA_PUBLIC_SEARCH_URL = "https://gamma-api.polymarket.com/public-search";
 const GAMMA_TIMEOUT_MS = 10_000;
+const GAMMA_EVENT_PAGE_LIMIT = 100;
 
 export type GammaRawMarket = Record<string, unknown>;
 
@@ -11,14 +14,21 @@ export type GammaRawEvent = {
   [key: string]: unknown;
 };
 
+type GammaPublicSearchResponse = {
+  events?: GammaRawEvent[];
+};
+
 export type NormalizedGammaMarket = {
   id: string;
   slug: string;
   question: string;
+  description?: string;
+  resolutionSource?: string;
   negRisk: boolean;
   clobTokenIds: string[];
   outcomes: string[];
   outcomePrices: string[];
+  expectedResolutionAt?: number | null;
 };
 
 export async function fetchNegRiskEvents(
@@ -46,24 +56,75 @@ export async function fetchNegRiskEvents(
 }
 
 export async function fetchActiveEvents(limit = 200): Promise<GammaRawEvent[]> {
+  const targetLimit = Math.max(0, Math.floor(limit));
+  const events: GammaRawEvent[] = [];
+
+  for (
+    let offset = 0;
+    events.length < targetLimit;
+    offset += GAMMA_EVENT_PAGE_LIMIT
+  ) {
+    const pageLimit = Math.min(GAMMA_EVENT_PAGE_LIMIT, targetLimit - events.length);
+    const response = await retryWithBackoff(
+      () =>
+        withTimeout(
+          axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
+            params: {
+              active: true,
+              closed: false,
+              limit: pageLimit,
+              offset
+            },
+            timeout: GAMMA_TIMEOUT_MS
+          }),
+          GAMMA_TIMEOUT_MS + 1_000,
+          "Gamma active events request timed out."
+        ),
+      { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 }
+    );
+    const page = response.data;
+
+    events.push(...page);
+
+    if (page.length < pageLimit) {
+      break;
+    }
+  }
+
+  return events.slice(0, targetLimit);
+}
+
+export async function fetchPublicSearchEvents(
+  query: string,
+  limit = 20
+): Promise<GammaRawEvent[]> {
+  const cleanedQuery = query.trim();
+  const targetLimit = Math.max(0, Math.floor(limit));
+
+  if (!cleanedQuery || targetLimit === 0) {
+    return [];
+  }
+
   const response = await retryWithBackoff(
     () =>
       withTimeout(
-        axios.get<GammaRawEvent[]>(GAMMA_EVENTS_URL, {
+        axios.get<GammaPublicSearchResponse>(GAMMA_PUBLIC_SEARCH_URL, {
           params: {
-            active: true,
-            closed: false,
-            limit
+            q: cleanedQuery,
+            limit: targetLimit,
+            events_status: "active"
           },
           timeout: GAMMA_TIMEOUT_MS
         }),
         GAMMA_TIMEOUT_MS + 1_000,
-        "Gamma active events request timed out."
+        "Gamma public search request timed out."
       ),
     { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 }
   );
 
-  return response.data;
+  return Array.isArray(response.data.events)
+    ? response.data.events.slice(0, targetLimit)
+    : [];
 }
 
 export function parseJsonArrayField<T>(value: string | T[]): T[] {
@@ -92,10 +153,22 @@ export function parseJsonArrayField<T>(value: string | T[]): T[] {
 export function normalizeGammaMarket(
   market: GammaRawMarket
 ): NormalizedGammaMarket {
+  const expectedResolutionAt = deriveExpectedResolutionAt(market);
+
   return {
     id: optionalString(market.id),
     slug: optionalString(market.slug),
     question: optionalString(market.question),
+    ...(optionalString(market.description)
+      ? { description: optionalString(market.description) }
+      : {}),
+    ...(optionalString(market.resolutionSource ?? market.resolution_source)
+      ? {
+          resolutionSource: optionalString(
+            market.resolutionSource ?? market.resolution_source
+          )
+        }
+      : {}),
     negRisk: optionalBoolean(market.negRisk),
     clobTokenIds: optionalArrayField<string>(
       market.clobTokenIds,
@@ -105,7 +178,8 @@ export function normalizeGammaMarket(
     outcomePrices: optionalArrayField<string>(
       market.outcomePrices,
       "outcomePrices"
-    )
+    ),
+    ...(expectedResolutionAt ? { expectedResolutionAt } : {})
   };
 }
 

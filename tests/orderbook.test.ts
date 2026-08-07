@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchOrderBook,
   getBestBidAsk,
+  walkAsksForShares,
   walkAsksForSize,
+  walkBidsForShares,
   type OrderBook
 } from "../src/utils/orderbook.js";
 
@@ -82,6 +84,18 @@ describe("orderbook utilities", () => {
       averageFillPrice: 0.456475,
       maxFillableUsd: 9.2,
       requestedSizeUsd: 6.75
+    });
+    expect(walkAsksForShares(orderbook, 12)).toEqual({
+      fillable: true,
+      averageFillPrice: 0.453333,
+      costUsd: 5.44,
+      requestedShares: 12
+    });
+    expect(walkBidsForShares(orderbook, 12)).toEqual({
+      fillable: true,
+      averageFillPrice: 0.418333,
+      proceedsUsd: 5.02,
+      requestedShares: 12
     });
   });
 

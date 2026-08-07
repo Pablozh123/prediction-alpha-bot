@@ -33,9 +33,17 @@ describe("trade journal", () => {
     expect(tables).toEqual([
       "live_trades",
       "opportunities",
+      "opportunity_legs",
+      "orderbook_snapshots",
+      "orderbook_token_blocks",
+      "paper_dedupe_skips",
       "paper_fire_dedup",
       "paper_trades",
-      "scan_cycles"
+      "scan_cycles",
+      "scanner_runs",
+      "sports_resolution_watch",
+      "sports_slug_mappings",
+      "sports_ticks"
     ]);
   });
 
@@ -50,6 +58,7 @@ describe("trade journal", () => {
       opportunityId: "opportunity-1",
       side: "YES",
       sizeUsd: 10,
+      sizeShares: 25,
       entryPrice: 0.42,
       arbClass: "neg_risk_bracket_arb",
       timestamp: 1_700_000_000_000
@@ -61,6 +70,7 @@ describe("trade journal", () => {
     expect(trade.resolved).toBe(false);
     expect(trade.inflationFlagged).toBe(false);
     expect(trade.opportunityId).toBe("opportunity-1");
+    expect(trade.sizeShares).toBe(25);
   });
 
   it("reads recent paper trades", () => {

@@ -16,6 +16,7 @@ const executeOrPaperInputSchema = z.object({
   side: z.enum(["YES", "NO"]),
   entryPrice: z.number().finite().min(0).max(1),
   paperSizeUsd: z.number().finite().positive(),
+  paperSizeShares: z.number().finite().positive().optional(),
   liveSizeUsd: z.number().finite().positive().optional(),
   arbClass: optionalText
 });
@@ -29,6 +30,7 @@ export type ExecuteOrPaperInput = {
   side: PaperTradeSide;
   entryPrice: number;
   paperSizeUsd: number;
+  paperSizeShares?: number;
   liveSizeUsd?: number;
   arbClass?: string;
 };
@@ -52,6 +54,7 @@ export function executeOrPaper(
     opportunityId: parsed.opportunityId,
     side: parsed.side,
     sizeUsd: parsed.paperSizeUsd,
+    sizeShares: parsed.paperSizeShares,
     entryPrice: parsed.entryPrice,
     arbClass: parsed.arbClass
   });
