@@ -57,6 +57,7 @@ describe("cross venue arb scan runner", () => {
           orderbookReads: emptyCrossVenueOrderbookReadMetrics(),
           priceSpreads: [],
           rejected: [],
+        noEdge: [],
         };
       },
     });
@@ -135,6 +136,7 @@ describe("cross venue arb scan runner", () => {
           orderbookReads: emptyCrossVenueOrderbookReadMetrics(),
           priceSpreads: [],
           rejected: [],
+        noEdge: [],
         };
       },
     });
@@ -194,6 +196,7 @@ describe("cross venue arb scan runner", () => {
           orderbookReads: emptyCrossVenueOrderbookReadMetrics(),
           priceSpreads: [],
           rejected: [],
+        noEdge: [],
         };
       },
     });
@@ -233,6 +236,7 @@ describe("cross venue arb scan runner", () => {
         orderbookReads: emptyCrossVenueOrderbookReadMetrics(),
         priceSpreads: [],
         rejected: [],
+        noEdge: [],
       };
     };
 
@@ -299,6 +303,7 @@ describe("cross venue arb scan runner", () => {
         orderbookReads: emptyCrossVenueOrderbookReadMetrics(),
         priceSpreads: [],
         rejected: [],
+        noEdge: [],
       };
     };
     const writePair = (pair: CrossVenuePair) =>
@@ -402,12 +407,24 @@ function makeOpportunity(
     executableSize: 10,
     maxProfitDollars: 0.31,
     reason: "cross_venue_yes_no_below_one",
+    feeModel: "flat",
+    feeModelVersion: "flat",
+    roleMode: "taker",
+    capitalUsd: 9.7,
+    grossEdgeBps: 319.59,
+    executableNetEdgeBps: 319.59,
+    daysToResolution: null,
+    annualizedPct: null,
+    ruleMatch: "unverified",
     yesLeg: {
       venue: "kalshi",
       side: "YES",
       identifier: "KXCONFIG",
       bestAsk: 0.47,
       averageFillPrice: 0.47,
+      role: "taker",
+      sizeUsd: 0,
+      feeUsd: 0,
     },
     noLeg: {
       venue: "polymarket",
@@ -415,6 +432,9 @@ function makeOpportunity(
       identifier: "no-config",
       bestAsk: 0.5,
       averageFillPrice: 0.5,
+      role: "taker",
+      sizeUsd: 0,
+      feeUsd: 0,
     },
     ...overrides,
   };

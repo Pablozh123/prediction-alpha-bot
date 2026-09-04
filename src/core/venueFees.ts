@@ -201,6 +201,25 @@ export function kalshiFeeUsd(input: {
   return Math.ceil(Math.round(raw * 100 * 1e9) / 1e9) / 100;
 }
 
+/**
+ * Fee rate of one leg (fee per share = rate * p * (1 - p)), without Kalshi's
+ * per-order cent rounding. Ladder walks use this per level; the rounded total
+ * is applied once on the executable size by `legFeeUsd`.
+ */
+export function legFeeRate(input: {
+  venue: FeeVenue;
+  role: LegRole;
+  category?: string | null;
+}): number {
+  if (input.venue === "kalshi") {
+    return input.role === "maker" ? KALSHI_MAKER_RATE : KALSHI_TAKER_RATE;
+  }
+
+  return input.role === "maker"
+    ? POLYMARKET_MAKER_RATE
+    : polymarketTakerRate(input.category);
+}
+
 export function legFeeUsd(leg: FeeLegInput): number {
   if (!Number.isFinite(leg.shares) || leg.shares <= 0) {
     return 0;

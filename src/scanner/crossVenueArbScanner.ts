@@ -5,10 +5,23 @@ import {
   type OrderBook,
   type OrderBookLevel,
 } from "../utils/orderbook.js";
+import {
+  computeBasketEconomics,
+  type BasketEconomics,
+} from "../core/opportunityEconomics.js";
+import type { RejectionReason } from "../core/rejectionReasons.js";
+import {
+  assignLegRoles,
+  FEE_MODEL_VERSION,
+  legFeeRate,
+  type ExecutionRoleMode,
+  type LegRole,
+} from "../core/venueFees.js";
 import type {
   CanonicalEvent,
   CanonicalOutcome,
 } from "./canonicalPredictionMarket.js";
+import { classifyQuestionMismatch } from "./crossVenueQuestionMatch.js";
 import type { LiveOrderBookCache } from "./liveOrderbookCache.js";
 
 export const CROSS_VENUE_ARB_STRATEGY = "cross_venue_yes_no_arb";
@@ -33,11 +46,15 @@ export type CrossVenuePair = {
   canonicalOutcome?: CanonicalOutcome;
   kalshi: {
     ticker: string;
+    /** Kalshi title (+ subtitle); lets the question-type check run. */
+    title?: string;
     liquidityDollars?: number | null;
     volume24h?: number | null;
   };
   polymarket: {
     slug: string;
+    /** Polymarket question text; lets the question-type check run. */
+    question?: string;
     yesTokenId: string;
     noTokenId: string;
     liquidityDollars?: number | null;
@@ -45,7 +62,21 @@ export type CrossVenuePair = {
   };
 };
 
+/** Flat cents per share per venue. Legacy; zero means "not configured". */
 export type CrossVenueFeeConfig = Partial<Record<CrossVenue, number>>;
+
+/**
+ * `curve` prices every level with the venue fee curves (the default);
+ * `flat` uses `feesCents` and is only chosen when a positive flat fee is
+ * configured explicitly. A zero flat fee is never honoured: it was the
+ * configuration the May 2026 runs carried, and it was wrong.
+ */
+export type CrossVenueFeeModel = "curve" | "flat";
+
+export type CrossVenueFeeCurve = {
+  yes: { venue: CrossVenue; role: LegRole; category: string | null };
+  no: { venue: CrossVenue; role: LegRole; category: string | null };
+};
 
 export type CrossVenueBook = {
   venue: CrossVenue;
@@ -62,6 +93,9 @@ export type CrossVenueArbLeg = {
   identifier: string;
   bestAsk: number;
   averageFillPrice: number;
+  role: LegRole;
+  sizeUsd: number;
+  feeUsd: number;
 };
 
 export type CrossVenueArbOpportunity = {
@@ -83,6 +117,15 @@ export type CrossVenueArbOpportunity = {
   liquidityDollars?: number | null;
   volume24h?: number | null;
   reason: "cross_venue_yes_no_below_one";
+  feeModel: CrossVenueFeeModel;
+  feeModelVersion: string;
+  roleMode: ExecutionRoleMode;
+  capitalUsd: number;
+  grossEdgeBps: number;
+  executableNetEdgeBps: number;
+  daysToResolution: number | null;
+  annualizedPct: number | null;
+  ruleMatch: "unverified" | "reviewed";
   yesLeg: CrossVenueArbLeg;
   noLeg: CrossVenueArbLeg;
 };
@@ -105,14 +148,33 @@ export type CrossVenuePriceSpread = {
   reason: "same_outcome_price_difference";
 };
 
-export type ScanCrossVenuePairsOptions = {
+export type CrossVenueEconomicsOptions = {
+  feesCents?: CrossVenueFeeConfig;
+  minNetCents?: number;
+  roleMode?: ExecutionRoleMode;
+  nowMs?: number;
+};
+
+export type ScanCrossVenuePairsOptions = CrossVenueEconomicsOptions & {
   fetchKalshiBook?: (ticker: string) => Promise<KalshiOrderBook>;
   fetchPolymarketBook?: (tokenId: string) => Promise<OrderBook>;
   orderbookCache?: LiveOrderBookCache;
   orderbookCacheMaxAgeMs?: number;
-  feesCents?: CrossVenueFeeConfig;
-  minNetCents?: number;
   warn?: (message: string) => void;
+};
+
+export type CrossVenueRejectedPair = {
+  pairId: string;
+  reason: string;
+  detail?: string;
+};
+
+/** A pair that was read and priced, and had no edge at the executable size. */
+export type CrossVenueNoEdgePair = {
+  pairId: string;
+  reason: RejectionReason;
+  grossCents: number;
+  netCents: number;
 };
 
 export type CrossVenueOrderbookReadStats = {
@@ -143,10 +205,8 @@ type CrossVenueOrderbookReadMemo = {
 export type CrossVenueScanResult = {
   opportunities: CrossVenueArbOpportunity[];
   priceSpreads: CrossVenuePriceSpread[];
-  rejected: Array<{
-    pairId: string;
-    reason: string;
-  }>;
+  rejected: CrossVenueRejectedPair[];
+  noEdge: CrossVenueNoEdgePair[];
   orderbookReads: CrossVenueOrderbookReadMetrics;
 };
 
@@ -160,6 +220,7 @@ export async function scanCrossVenuePairs(
   const opportunities: CrossVenueArbOpportunity[] = [];
   const priceSpreads: CrossVenuePriceSpread[] = [];
   const rejected: CrossVenueScanResult["rejected"] = [];
+  const noEdge: CrossVenueScanResult["noEdge"] = [];
   const orderbookReads = emptyCrossVenueOrderbookReadMetrics();
   const readMemo: CrossVenueOrderbookReadMemo = {
     kalshi: new Map(),
@@ -169,6 +230,21 @@ export async function scanCrossVenuePairs(
   for (const pair of pairs) {
     try {
       validatePair(pair);
+
+      const questionMismatch = classifyPairQuestionMismatch(pair);
+
+      if (questionMismatch) {
+        rejected.push({
+          pairId: pair.id,
+          reason: questionMismatch.reason,
+          detail: questionMismatch.detail,
+        });
+        warn(
+          `Skipping cross-venue pair "${pair.id}": ${questionMismatch.reason} (${questionMismatch.detail})`,
+        );
+        continue;
+      }
+
       const [kalshiBook, polymarketYesBook, polymarketNoBook] =
         await Promise.all([
           readKalshiBookOnce(pair.kalshi.ticker, {
@@ -198,17 +274,25 @@ export async function scanCrossVenuePairs(
         buildPolymarketCrossVenueBook(pair, polymarketYesBook, polymarketNoBook),
       ];
 
-      opportunities.push(
-        ...calculateCrossVenueArbs(pair, books, {
-          feesCents: options.feesCents,
-          minNetCents: options.minNetCents,
-        }),
-      );
+      const evaluation = evaluateCrossVenueArbs(pair, books, {
+        feesCents: options.feesCents,
+        minNetCents: options.minNetCents,
+        roleMode: options.roleMode,
+        nowMs: options.nowMs,
+      });
+
+      opportunities.push(...evaluation.opportunities);
+      if (evaluation.opportunities.length === 0 && evaluation.noEdge) {
+        noEdge.push(evaluation.noEdge);
+      }
       priceSpreads.push(...calculateCrossVenuePriceSpreads(pair, books));
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
+      const reason: RejectionReason = /required/u.test(detail)
+        ? "pair_config_invalid"
+        : "orderbook_error";
 
-      rejected.push({ pairId: pair.id, reason: detail });
+      rejected.push({ pairId: pair.id, reason, detail });
       warn(`Skipping cross-venue pair "${pair.id}": ${detail}`);
     }
   }
@@ -225,8 +309,22 @@ export async function scanCrossVenuePairs(
         right.diffCents - left.diffCents || left.pairId.localeCompare(right.pairId),
     ),
     rejected,
+    noEdge,
     orderbookReads: finalizeCrossVenueOrderbookReadMetrics(orderbookReads),
   };
+}
+
+function classifyPairQuestionMismatch(
+  pair: CrossVenuePair,
+): { reason: RejectionReason; detail: string } | null {
+  const kalshiTitle = pair.kalshi.title?.trim();
+  const polymarketQuestion = pair.polymarket.question?.trim();
+
+  if (!kalshiTitle || !polymarketQuestion) {
+    return null;
+  }
+
+  return classifyQuestionMismatch(polymarketQuestion, kalshiTitle);
 }
 
 function readKalshiBookOnce(
@@ -419,16 +517,50 @@ function sumOrderbookReadStats(
   };
 }
 
+export function resolveCrossVenueFeeModel(
+  feesCents: CrossVenueFeeConfig | undefined,
+): CrossVenueFeeModel {
+  const flat = Object.values(feesCents ?? {}).some(
+    (fee) => typeof fee === "number" && Number.isFinite(fee) && fee > 0,
+  );
+
+  return flat ? "flat" : "curve";
+}
+
 export function calculateCrossVenueArbs(
   pair: CrossVenuePair,
   books: CrossVenueBook[],
-  options: {
-    feesCents?: CrossVenueFeeConfig;
-    minNetCents?: number;
-  } = {},
+  options: CrossVenueEconomicsOptions = {},
 ): CrossVenueArbOpportunity[] {
+  return evaluateCrossVenueArbs(pair, books, options).opportunities;
+}
+
+/**
+ * Price every YES/NO venue combination of one pair against both ask ladders.
+ *
+ * Returns the opportunities that clear the fee curves and the minimum net edge
+ * at the executable size, plus - when none does - the single most flattering
+ * reason why not, so a scanned pair without an edge is journaled as rejected
+ * and not silently dropped.
+ */
+export function evaluateCrossVenueArbs(
+  pair: CrossVenuePair,
+  books: CrossVenueBook[],
+  options: CrossVenueEconomicsOptions = {},
+): { opportunities: CrossVenueArbOpportunity[]; noEdge: CrossVenueNoEdgePair | null } {
   const minNetCents = options.minNetCents ?? DEFAULT_CROSS_VENUE_MIN_NET_CENTS;
+  const roleMode = options.roleMode ?? "taker";
+  const nowMs = options.nowMs ?? Date.now();
+  const feeModel = resolveCrossVenueFeeModel(options.feesCents);
+  const category = pair.category ?? null;
   const opportunities: CrossVenueArbOpportunity[] = [];
+  let noEdge: CrossVenueNoEdgePair | null = null;
+
+  const noteNoEdge = (reason: RejectionReason, grossCents: number, netCents: number): void => {
+    if (!noEdge || netCents > noEdge.netCents) {
+      noEdge = { pairId: pair.id, reason, grossCents, netCents };
+    }
+  };
 
   for (const yesBook of books) {
     for (const noBook of books) {
@@ -440,27 +572,93 @@ export function calculateCrossVenueArbs(
       const noBestAsk = noBook.bestNoAsk;
 
       if (yesBestAsk === null || noBestAsk === null) {
+        noteNoEdge("partial_basket_invalid", 0, 0);
         continue;
       }
 
-      const feeCents =
+      const roles = assignLegRoles(
+        [
+          { venue: yesBook.venue, price: yesBestAsk, category },
+          { venue: noBook.venue, price: noBestAsk, category },
+        ],
+        feeModel === "curve" ? roleMode : "taker",
+      );
+      const yesRole = roles[0]?.role ?? "taker";
+      const noRole = roles[1]?.role ?? "taker";
+      const feeCurve: CrossVenueFeeCurve = {
+        yes: { venue: yesBook.venue, role: yesRole, category },
+        no: { venue: noBook.venue, role: noRole, category },
+      };
+      const flatFeeCents =
         feeForVenue(yesBook.venue, options.feesCents) +
         feeForVenue(noBook.venue, options.feesCents);
+      const feeCents =
+        feeModel === "flat"
+          ? flatFeeCents
+          : roundCents(
+              (legFeeRate(feeCurve.yes) * yesBestAsk * (1 - yesBestAsk) +
+                legFeeRate(feeCurve.no) * noBestAsk * (1 - noBestAsk)) *
+                100,
+            );
       const totalTopOfBookCost = roundPrice(yesBestAsk + noBestAsk);
       const grossCents = roundCents((1 - totalTopOfBookCost) * 100);
       const netCents = roundCents(grossCents - feeCents);
 
       if (netCents < minNetCents) {
+        noteNoEdge(
+          grossCents <= 0
+            ? "non_positive_executable_edge"
+            : netCents <= 0
+              ? "non_positive_net_edge_after_fees"
+              : "below_min_net_edge",
+          grossCents,
+          netCents,
+        );
         continue;
       }
 
       const ladder = walkCrossVenueAskLadders(
         yesBook.yesAskLevels,
         noBook.noAskLevels,
-        feeCents,
+        feeModel === "flat" ? flatFeeCents : feeCurve,
       );
 
       if (ladder.executableSize <= 0 || ladder.maxProfitDollars <= 0) {
+        noteNoEdge("non_positive_net_edge_after_fees", grossCents, netCents);
+        continue;
+      }
+
+      const economics: BasketEconomics = computeBasketEconomics({
+        legs: [
+          {
+            venue: yesBook.venue,
+            side: "YES",
+            averageFillPrice: ladder.yesAverageFillPrice,
+            shares: ladder.executableSize,
+            category,
+            role: yesRole,
+          },
+          {
+            venue: noBook.venue,
+            side: "NO",
+            averageFillPrice: ladder.noAverageFillPrice,
+            shares: ladder.executableSize,
+            category,
+            role: noRole,
+          },
+        ],
+        payoutPerBasketShare: 1,
+        roleMode,
+        expectedResolutionAt: pair.expectedResolutionAt ?? null,
+        nowMs,
+      });
+      const yesEconomics = economics.legs[0];
+      const noEconomics = economics.legs[1];
+      const maxProfitDollars =
+        feeModel === "flat" ? ladder.maxProfitDollars : economics.netProfitUsd;
+
+      if (feeModel === "curve" && maxProfitDollars <= 0) {
+        noteNoEdge("non_positive_net_edge_after_fees", grossCents, netCents);
         continue;
       }
 
@@ -477,7 +675,7 @@ export function calculateCrossVenueArbs(
         roiBps: roundBps((netCents / 100 / totalTopOfBookCost) * 10_000),
         totalTopOfBookCost,
         executableSize: ladder.executableSize,
-        maxProfitDollars: ladder.maxProfitDollars,
+        maxProfitDollars: roundUsd(maxProfitDollars),
         ...(pair.category ? { category: pair.category } : {}),
         ...(pair.expectedResolutionAt
           ? { expectedResolutionAt: pair.expectedResolutionAt }
@@ -487,12 +685,30 @@ export function calculateCrossVenueArbs(
           : {}),
         ...(pair.volume24h !== undefined ? { volume24h: pair.volume24h } : {}),
         reason: "cross_venue_yes_no_below_one",
+        feeModel,
+        feeModelVersion: feeModel === "curve" ? FEE_MODEL_VERSION : "flat",
+        roleMode: feeModel === "curve" ? roleMode : "taker",
+        capitalUsd: economics.capitalUsd,
+        grossEdgeBps: economics.grossEdgeBps,
+        executableNetEdgeBps:
+          feeModel === "flat"
+            ? roundBps((maxProfitDollars / Math.max(economics.capitalUsd, 1e-9)) * 10_000)
+            : economics.executableNetEdgeBps,
+        daysToResolution: economics.daysToResolution,
+        annualizedPct:
+          feeModel === "flat"
+            ? annualizeFlat(maxProfitDollars, economics.capitalUsd, economics.daysToResolution)
+            : economics.annualizedPct,
+        ruleMatch: pair.verified === true ? "reviewed" : "unverified",
         yesLeg: {
           venue: yesBook.venue,
           side: "YES",
           identifier: yesBook.identifier,
           bestAsk: yesBestAsk,
           averageFillPrice: ladder.yesAverageFillPrice,
+          role: yesRole,
+          sizeUsd: yesEconomics?.sizeUsd ?? 0,
+          feeUsd: feeModel === "flat" ? roundUsd((feeForVenue(yesBook.venue, options.feesCents) / 100) * ladder.executableSize) : (yesEconomics?.feeUsd ?? 0),
         },
         noLeg: {
           venue: noBook.venue,
@@ -500,12 +716,27 @@ export function calculateCrossVenueArbs(
           identifier: noBook.identifier,
           bestAsk: noBestAsk,
           averageFillPrice: ladder.noAverageFillPrice,
+          role: noRole,
+          sizeUsd: noEconomics?.sizeUsd ?? 0,
+          feeUsd: feeModel === "flat" ? roundUsd((feeForVenue(noBook.venue, options.feesCents) / 100) * ladder.executableSize) : (noEconomics?.feeUsd ?? 0),
         },
       });
     }
   }
 
-  return opportunities;
+  return { opportunities, noEdge: opportunities.length === 0 ? noEdge : null };
+}
+
+function annualizeFlat(
+  netProfitUsd: number,
+  capitalUsd: number,
+  days: number | null,
+): number | null {
+  if (days === null || capitalUsd <= 0) {
+    return null;
+  }
+
+  return Math.round(((netProfitUsd / capitalUsd) * (365 / Math.max(1, days)) * 100 + Number.EPSILON) * 100) / 100;
 }
 
 export function calculateCrossVenuePriceSpreads(
@@ -555,7 +786,7 @@ export function buildPolymarketCrossVenueBook(
 export function walkCrossVenueAskLadders(
   yesAskLevels: OrderBookLevel[],
   noAskLevels: OrderBookLevel[],
-  feeCents: number,
+  fee: number | CrossVenueFeeCurve,
 ): {
   executableSize: number;
   maxProfitDollars: number;
@@ -581,6 +812,14 @@ export function walkCrossVenueAskLadders(
       break;
     }
 
+    const feeCents =
+      typeof fee === "number"
+        ? fee
+        : roundCents(
+            (legFeeRate(fee.yes) * yes.price * (1 - yes.price) +
+              legFeeRate(fee.no) * no.price * (1 - no.price)) *
+              100,
+          );
     const netCents = roundCents((1 - yes.price - no.price) * 100 - feeCents);
 
     if (netCents <= 0) {

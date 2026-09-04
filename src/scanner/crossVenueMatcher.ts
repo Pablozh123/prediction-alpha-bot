@@ -397,11 +397,15 @@ export function matchCrossVenueMarkets(
         canonicalOutcome: canonical.outcome,
         kalshi: {
           ticker: candidate.kalshi.ticker,
+          title: [candidate.kalshi.title, candidate.kalshi.subtitle]
+            .filter(Boolean)
+            .join(" "),
           liquidityDollars: candidate.kalshi.liquidityDollars,
           volume24h: candidate.kalshi.volume24h,
         },
         polymarket: {
           slug: candidate.polymarket.slug,
+          question: candidate.polymarket.question,
           yesTokenId: candidate.polymarket.yesTokenId,
           noTokenId: candidate.polymarket.noTokenId,
           liquidityDollars: candidate.polymarket.liquidityDollars,

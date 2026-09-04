@@ -1868,6 +1868,7 @@ describe("cross venue dashboard server", () => {
             },
           ],
           rejected: [],
+        noEdge: [],
         };
       },
     });
