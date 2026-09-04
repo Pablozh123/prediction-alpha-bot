@@ -12,6 +12,63 @@ This module implements an OddPool-style cross-venue scanner for matched Kalshi a
 
 ## Core Logic
 
+## Fees (schedule 2026-07-30)
+
+Since 2026-09-04 every cross-venue basket is priced with the venue fee curves
+instead of flat cents. Both venues charge on the variance of a binary outcome:
+
+```text
+fee_usd = shares * rate * p * (1 - p)
+```
+
+| Venue | Taker rate | Maker rate | Rounding |
+| --- | --- | --- | --- |
+| Polymarket | per category: crypto 0.07; sports, economics, culture, weather, other 0.05; finance, politics, mentions, tech 0.04; geopolitics 0 | 0 (rebate not credited) | none |
+| Kalshi | 0.07 | 0.0175 (assumed charged) | order fee rounded up to the next cent |
+
+Source: the sibling research project recorded these from
+`docs.polymarket.com/trading/fees`, `help.kalshi.com` and the Kalshi fee
+schedule PDF on 2026-07-30 (`FEE_SOURCES` in `src/core/venueFees.ts`). The
+general Polymarket rate is disputed between 5 and 3 percent in secondary
+sources; the documented 5 percent is used because it is the conservative
+choice for an edge scanner.
+
+The ladder walk applies the curve at every level (`legFeeRate`), and the
+executable size is then priced once more with the rounded totals
+(`computeBasketEconomics`). `EXECUTION_ROLE_MODE=maker_first` lets the leg with
+the highest taker fee rest as a maker; the default `taker` prices every leg as
+an aggressive fill. The role travels with every leg into the journal and the
+published feed.
+
+Flat `feesCents` in the pair config are a legacy override and are only honoured
+when a venue value is positive. Zero is ignored on purpose: it was the
+configuration the May 2026 runs carried, and it was wrong.
+
+## Days to resolution and annualised return
+
+A gap that stands open for hours is not an arbitrage but capital locked until
+resolution. Every opportunity therefore carries `daysToResolution` and a
+linearly annualised `annualizedPct` (net profit over capital, scaled by
+365/days with a one-day floor), and the published feed ranks by it. The
+2026-07-31 study of the sibling project found the best cross-venue gaps at
+roughly one percent a year on 830-day horizons.
+
+## Question-type exclusion and rule status
+
+Before any book is read, `classifyQuestionMismatch` compares the Kalshi title
+with the Polymarket question and hard-excludes pairs that ask different
+questions: the outright result against the margin of victory, winning against
+merely running, and a question against its inversion on the same strike. These
+appear as rejected with `question_type_mismatch` / `question_inverted` and
+`rule_match: mismatch`, next to the matcher's `compound_kalshi_market`,
+`resolution_time_mismatch` and `resolution_terms_mismatch`.
+
+Nothing in this repository verifies resolution rules. A pair is `unverified`
+until a person has compared both rulebooks and set `verified: true` in the
+local pair config, which makes it `reviewed`. The scanner never promotes a pair
+on its own, and the cross-venue lane never paper-fires: on an unverified pair a
+basket is two open bets, not a hedge.
+
 ## Canonical Market Model
 
 Auto-discovery now normalizes matched markets into internal `CanonicalEvent` and
@@ -339,8 +396,12 @@ CROSS_VENUE_KALSHI_MAX_PAGES=1
 CROSS_VENUE_MAX_PAIRS=25
 CROSS_VENUE_MIN_MATCH_SCORE=0.68
 CROSS_VENUE_MIN_NET_CENTS=0.5
-CROSS_VENUE_KALSHI_FEE_CENTS=0
-CROSS_VENUE_POLYMARKET_FEE_CENTS=0
+CROSS_VENUE_SCAN_ENABLED=true
+CROSS_VENUE_SCAN_INTERVAL_MS=300000
+EXECUTION_ROLE_MODE=taker
+# legacy flat override, only honoured when positive:
+# CROSS_VENUE_KALSHI_FEE_CENTS=
+# CROSS_VENUE_POLYMARKET_FEE_CENTS=
 CROSS_VENUE_DASHBOARD_HOST=127.0.0.1
 CROSS_VENUE_DASHBOARD_PORT=8787
 ```
@@ -349,5 +410,5 @@ CROSS_VENUE_DASHBOARD_PORT=8787
 
 - `config/crossVenuePairs.json` is ignored by git.
 - `.env` remains ignored.
-- Fees are configurable placeholders; do not treat zero-fee output as execution-ready.
+- Fees follow the 2026-07-30 venue curves by default; a zero flat fee is ignored, never applied.
 - No paper trade is created by this scanner. Positive candidates are journaled as validated opportunities only.
