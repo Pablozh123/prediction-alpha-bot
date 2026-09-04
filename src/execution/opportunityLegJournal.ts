@@ -16,6 +16,11 @@ export type RecordOpportunityLegInput = {
   bestAsk?: number | null;
   fillable: boolean;
   reason?: string | null;
+  venue?: string | null;
+  role?: string | null;
+  shares?: number | null;
+  sizeUsd?: number | null;
+  feeUsd?: number | null;
   legIndex: number;
   timestamp?: number;
 };
@@ -37,6 +42,11 @@ export type OpportunityLegRecord = {
   spread: number | null;
   fillable: boolean;
   reason: string | null;
+  venue: string | null;
+  role: string | null;
+  shares: number | null;
+  sizeUsd: number | null;
+  feeUsd: number | null;
   legIndex: number;
   timestamp: number;
 };
@@ -58,6 +68,11 @@ type OpportunityLegRow = {
   spread: number | null;
   fillable: number;
   reason: string | null;
+  venue: string | null;
+  role: string | null;
+  shares: number | null;
+  size_usd: number | null;
+  fee_usd: number | null;
   leg_index: number;
   timestamp: number;
 };
@@ -95,6 +110,11 @@ export function recordOpportunityLegs(
       spread,
       fillable: leg.fillable,
       reason: leg.reason ?? null,
+      venue: leg.venue ?? null,
+      role: leg.role ?? null,
+      shares: leg.shares ?? null,
+      sizeUsd: leg.sizeUsd ?? null,
+      feeUsd: leg.feeUsd ?? null,
       legIndex: leg.legIndex,
       timestamp: leg.timestamp ?? Date.now()
     };
@@ -119,6 +139,11 @@ export function recordOpportunityLegs(
       spread,
       fillable,
       reason,
+      venue,
+      role,
+      shares,
+      size_usd,
+      fee_usd,
       leg_index,
       timestamp
     ) VALUES (
@@ -138,6 +163,11 @@ export function recordOpportunityLegs(
       @spread,
       @fillable,
       @reason,
+      @venue,
+      @role,
+      @shares,
+      @sizeUsd,
+      @feeUsd,
       @legIndex,
       @timestamp
     )
@@ -177,6 +207,11 @@ export function listOpportunityLegs(
         spread,
         fillable,
         reason,
+        venue,
+        role,
+        shares,
+        size_usd,
+        fee_usd,
         leg_index,
         timestamp
       FROM opportunity_legs
@@ -206,6 +241,11 @@ function mapOpportunityLegRow(row: OpportunityLegRow): OpportunityLegRecord {
     spread: row.spread,
     fillable: row.fillable === 1,
     reason: row.reason,
+    venue: row.venue,
+    role: row.role,
+    shares: row.shares,
+    sizeUsd: row.size_usd,
+    feeUsd: row.fee_usd,
     legIndex: row.leg_index,
     timestamp: row.timestamp
   };

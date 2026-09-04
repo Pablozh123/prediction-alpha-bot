@@ -15,6 +15,17 @@ import {
 import { recordScanCycle } from "../execution/scanCycleJournal.js";
 import { recordScannerRun } from "../execution/scannerRunJournal.js";
 import {
+  computeBasketEconomics,
+  isPositiveBps,
+  type BasketEconomics,
+} from "../core/opportunityEconomics.js";
+import {
+  createRejectionCounter,
+  type RejectionCounter,
+  type RejectionReason,
+} from "../core/rejectionReasons.js";
+import type { ExecutionRoleMode } from "../core/venueFees.js";
+import {
   addOpportunitiesFound,
   addPaperTrades,
   incrementErrors,
@@ -59,9 +70,10 @@ import {
   classifyCapitalLock,
 } from "../utils/marketTime.js";
 
-const NEG_RISK_BRACKET_STRATEGY = "neg_risk_bracket_arb";
+export const NEG_RISK_BRACKET_STRATEGY = "neg_risk_bracket_arb";
 const DEFAULT_PAPER_SIZE_USD = 1;
 const DEFAULT_MIN_PAPER_FIRE_EDGE = 0;
+const DEFAULT_MIN_EXECUTABLE_DEPTH_USD = 0;
 const DEFAULT_MAX_OPPORTUNITIES_PER_STRATEGY = 50;
 const SCANNER_WARNING_LIMIT_PER_CYCLE = 8;
 const VALIDATION_WARNING_LIMIT_PER_CYCLE = 12;
@@ -79,6 +91,7 @@ export type ScanCycleResult = {
   paperTrades: number;
   skippedDuplicates: number;
   rejectedOpportunities: number;
+  rejectionsByReason: Partial<Record<RejectionReason, number>>;
   error?: string;
 };
 
@@ -91,9 +104,14 @@ export type RunScanCycleOptions = {
   execute?: typeof executeOrPaper;
   logger?: ScanCycleLogger;
   cleanBasketFilterOptions?: Partial<CleanBasketFilterOptions>;
+  /** Capital the paper basket targets; the book decides what it actually gets. */
   paperSizeUsd?: number;
   paperFireCooldownMs?: number;
   minPaperFireEdge?: number;
+  /** Baskets whose executable capital is below this are not chances. */
+  minExecutableDepthUsd?: number;
+  /** How legs are priced for fees: every leg taker, or one resting maker. */
+  roleMode?: ExecutionRoleMode;
   maxOpportunitiesPerStrategy?: number;
   now?: () => number;
   validateOpportunity?: (
@@ -129,6 +147,9 @@ export async function runScanCycle(
   const paperSizeUsd = options.paperSizeUsd ?? DEFAULT_PAPER_SIZE_USD;
   const minPaperFireEdge =
     options.minPaperFireEdge ?? DEFAULT_MIN_PAPER_FIRE_EDGE;
+  const minExecutableDepthUsd =
+    options.minExecutableDepthUsd ?? DEFAULT_MIN_EXECUTABLE_DEPTH_USD;
+  const roleMode = options.roleMode ?? "taker";
   const maxOpportunitiesPerStrategy =
     options.maxOpportunitiesPerStrategy ??
     DEFAULT_MAX_OPPORTUNITIES_PER_STRATEGY;
@@ -141,6 +162,7 @@ export async function runScanCycle(
     options.validateWithinMarket ?? validateWithinMarketOpportunity;
   const cleanBasketFilterOptions = options.cleanBasketFilterOptions;
   const sendAlert = options.sendAlert;
+  const rejections = createRejectionCounter();
 
   try {
     const negRiskWarningLimiter = createCycleWarningLimiter(
@@ -238,9 +260,11 @@ export async function runScanCycle(
       recordOpportunity({
         strategy: CLEAR_WIN_WATCH_STRATEGY,
         slug: opportunity.slug,
+        title: opportunity.slug,
+        venues: ["polymarket"],
         rawEdge: null,
         status: "rejected",
-        reason: CLEAR_WIN_WATCH_REASON,
+        reason: rejections.record(CLEAR_WIN_WATCH_REASON),
         tokenIds: [opportunity.tokenId],
         timestamp: now(),
         expectedResolutionAt: opportunity.expectedResolutionAt,
@@ -281,6 +305,8 @@ export async function runScanCycle(
       const journaledOpportunity = recordOpportunity({
         strategy: NEG_RISK_BRACKET_STRATEGY,
         slug: opportunity.eventSlug,
+        title: opportunity.eventSlug,
+        venues: ["polymarket"],
         rawEdge: opportunity.expectedEdge,
         status: "raw_found",
         reason: opportunity.reason,
@@ -291,56 +317,58 @@ export async function runScanCycle(
 
       const validated = await validateOpportunity(opportunity, paperSizeUsd);
       const executableEdge = validated.expectedGrossEdge;
+      const economics = buildNegRiskEconomics(validated, opportunity, {
+        nowMs,
+        roleMode,
+      });
       const telemetry = {
         ...buildValidationTelemetry(validated),
+        ...buildEconomicsTelemetry(economics, validated.minLegDepthUsd),
         ...buildTimingTelemetry(opportunity.expectedResolutionAt, nowMs),
       };
       recordNegRiskLegTelemetry({
+        economics,
         nowMs,
         opportunity,
         opportunityId: journaledOpportunity.id,
         validated,
       });
 
-      if (!validated.valid) {
+      const reject = (reason: RejectionReason): void => {
         updateOpportunityStatus(journaledOpportunity.id, {
           status: "rejected",
           ...telemetry,
-          reason: validated.reason,
+          reason: rejections.record(reason),
         });
         validationWarningLimiter.warn(
-          `skipped invalid paper opportunity: ${validated.reason}.`,
+          `skipped invalid paper opportunity: ${reason}.`,
         );
         rejectedOpportunities += 1;
         negRiskRejectedOpportunities += 1;
+      };
+
+      if (!validated.valid) {
+        reject(validated.reason as RejectionReason);
         continue;
       }
 
       if (executableEdge === null || executableEdge <= minPaperFireEdge) {
-        updateOpportunityStatus(journaledOpportunity.id, {
-          status: "rejected",
-          ...telemetry,
-          reason: "non_positive_executable_edge",
-        });
-        validationWarningLimiter.warn(
-          "skipped invalid paper opportunity: non_positive_executable_edge.",
-        );
-        rejectedOpportunities += 1;
-        negRiskRejectedOpportunities += 1;
+        reject("non_positive_executable_edge");
         continue;
       }
 
       if (validated.legs.some((leg) => leg.averageFillPrice === null)) {
-        updateOpportunityStatus(journaledOpportunity.id, {
-          status: "rejected",
-          ...telemetry,
-          reason: "missing_fill_price",
-        });
-        validationWarningLimiter.warn(
-          "skipped invalid paper opportunity: missing fill price.",
-        );
-        rejectedOpportunities += 1;
-        negRiskRejectedOpportunities += 1;
+        reject("missing_fill_price");
+        continue;
+      }
+
+      if (economics && !isPositiveBps(economics.executableNetEdgeBps)) {
+        reject("non_positive_net_edge_after_fees");
+        continue;
+      }
+
+      if (economics && economics.capitalUsd < minExecutableDepthUsd) {
+        reject("insufficient_depth_for_target_size");
         continue;
       }
 
@@ -350,16 +378,7 @@ export async function runScanCycle(
       );
 
       if (durationRejectReason) {
-        updateOpportunityStatus(journaledOpportunity.id, {
-          status: "rejected",
-          ...telemetry,
-          reason: durationRejectReason,
-        });
-        validationWarningLimiter.warn(
-          `skipped invalid paper opportunity: ${durationRejectReason}.`,
-        );
-        rejectedOpportunities += 1;
-        negRiskRejectedOpportunities += 1;
+        reject(durationRejectReason);
         continue;
       }
 
@@ -378,22 +397,14 @@ export async function runScanCycle(
       );
 
       if (!cleanBasket.valid || basketClassification.basketClass !== "clean_arb") {
-        updateOpportunityStatus(journaledOpportunity.id, {
-          status: "rejected",
-          ...telemetry,
-          reason: cleanBasket.reason,
-        });
-        validationWarningLimiter.warn(
-          `skipped invalid paper opportunity: ${cleanBasket.reason}.`,
-        );
-        rejectedOpportunities += 1;
-        negRiskRejectedOpportunities += 1;
+        reject(cleanBasket.reason as RejectionReason);
         continue;
       }
 
       updateOpportunityStatus(journaledOpportunity.id, {
         status: "validated",
         ...telemetry,
+        ruleMatch: "reviewed",
         reason: cleanBasket.reason,
       });
       negRiskValidatedOpportunities += 1;
@@ -435,6 +446,7 @@ export async function runScanCycle(
       updateOpportunityStatus(journaledOpportunity.id, {
         status: "paper_fired",
         ...telemetry,
+        ruleMatch: "reviewed",
         reason: "paper_trade_recorded",
       });
       await sendPaperFireAlert({
@@ -451,10 +463,13 @@ export async function runScanCycle(
       const result = await processWithinMarketOpportunity({
         execute,
         logger: validationLogger,
+        minExecutableDepthUsd,
         nowMs: now(),
         opportunity,
         paperFireCooldownMs,
         paperSizeUsd,
+        rejections,
+        roleMode,
         sendAlert,
         validateWithinMarket,
         minPaperFireEdge,
@@ -469,7 +484,7 @@ export async function runScanCycle(
       withinMarketDedupeSkips += result.skippedDuplicates;
     }
 
-      recordScannerRun({
+    recordScannerRun({
       strategy: NEG_RISK_BRACKET_STRATEGY,
       timestamp: cycleStartedAt,
       rawOpportunities: rawNegRiskOpportunities.length,
@@ -502,7 +517,7 @@ export async function runScanCycle(
 
     addPaperTrades(paperTrades);
 
-    const result = {
+    const result: ScanCycleResult = {
       success: true,
       opportunities:
         rawNegRiskOpportunities.length +
@@ -511,6 +526,7 @@ export async function runScanCycle(
       paperTrades,
       skippedDuplicates,
       rejectedOpportunities,
+      rejectionsByReason: rejections.counts(),
     };
 
     validationWarningLimiter.flush();
@@ -527,12 +543,13 @@ export async function runScanCycle(
       }),
     );
 
-    const result = {
+    const result: ScanCycleResult = {
       success: false,
       opportunities: 0,
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      rejectionsByReason: rejections.counts(),
       error: message,
     };
 
@@ -599,11 +616,14 @@ function createCycleWarningLimiter(
 type ProcessWithinMarketOpportunityInput = {
   execute: typeof executeOrPaper;
   logger: ScanCycleLogger;
+  minExecutableDepthUsd: number;
   nowMs: number;
   opportunity: WithinMarketArbOpportunity;
   paperFireCooldownMs: number;
   paperSizeUsd: number;
   minPaperFireEdge: number;
+  rejections: RejectionCounter;
+  roleMode: ExecutionRoleMode;
   sendAlert?: (message: string) => Promise<unknown>;
   validateWithinMarket: (
     opportunity: WithinMarketArbOpportunity,
@@ -661,6 +681,9 @@ async function processWithinMarketOpportunity(
   const journaledOpportunity = recordOpportunity({
     strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
     slug: input.opportunity.slug,
+    title: input.opportunity.question,
+    venues: ["polymarket"],
+    category: input.opportunity.category ?? null,
     rawEdge: input.opportunity.expectedEdge,
     status: "raw_found",
     reason: input.opportunity.reason,
@@ -674,26 +697,30 @@ async function processWithinMarketOpportunity(
     input.paperSizeUsd,
   );
   const executableEdge = validated.expectedGrossEdge;
+  const economics = buildWithinMarketEconomics(validated, input.opportunity, {
+    nowMs: input.nowMs,
+    roleMode: input.roleMode,
+  });
   const telemetry = {
     ...buildValidationTelemetry(validated),
+    ...buildEconomicsTelemetry(economics, validated.minLegDepthUsd),
     ...buildTimingTelemetry(input.opportunity.expectedResolutionAt ?? null, input.nowMs),
   };
   recordWithinMarketLegTelemetry({
+    economics,
     nowMs: input.nowMs,
     opportunity: input.opportunity,
     opportunityId: journaledOpportunity.id,
     validated,
   });
 
-  if (!validated.valid) {
+  const rejected = (reason: RejectionReason): ProcessOpportunityResult => {
     updateOpportunityStatus(journaledOpportunity.id, {
       status: "rejected",
       ...telemetry,
-      reason: validated.reason,
+      reason: input.rejections.record(reason),
     });
-    input.logger.warn(
-      `skipped invalid paper opportunity: ${validated.reason}.`,
-    );
+    input.logger.warn(`skipped invalid paper opportunity: ${reason}.`);
 
     return {
       paperTrades: 0,
@@ -701,6 +728,10 @@ async function processWithinMarketOpportunity(
       rejectedOpportunities: 1,
       validatedOpportunities: 0,
     };
+  };
+
+  if (!validated.valid) {
+    return rejected(validated.reason as RejectionReason);
   }
 
   if (
@@ -709,21 +740,15 @@ async function processWithinMarketOpportunity(
     validated.askYes === null ||
     validated.askNo === null
   ) {
-    updateOpportunityStatus(journaledOpportunity.id, {
-      status: "rejected",
-      ...telemetry,
-      reason: "non_positive_executable_edge",
-    });
-    input.logger.warn(
-      "skipped invalid paper opportunity: non_positive_executable_edge.",
-    );
+    return rejected("non_positive_executable_edge");
+  }
 
-    return {
-      paperTrades: 0,
-      skippedDuplicates: 0,
-      rejectedOpportunities: 1,
-      validatedOpportunities: 0,
-    };
+  if (economics && !isPositiveBps(economics.executableNetEdgeBps)) {
+    return rejected("non_positive_net_edge_after_fees");
+  }
+
+  if (economics && economics.capitalUsd < input.minExecutableDepthUsd) {
+    return rejected("insufficient_depth_for_target_size");
   }
 
   const durationRejectReason = getShortDurationRejectReason(
@@ -732,42 +757,23 @@ async function processWithinMarketOpportunity(
   );
 
   if (durationRejectReason) {
-    updateOpportunityStatus(journaledOpportunity.id, {
-      status: "rejected",
-      ...telemetry,
-      reason: durationRejectReason,
-    });
-    input.logger.warn(`skipped invalid paper opportunity: ${durationRejectReason}.`);
-
-    return {
-      paperTrades: 0,
-      skippedDuplicates: 0,
-      rejectedOpportunities: 1,
-      validatedOpportunities: 0,
-    };
+    return rejected(durationRejectReason);
   }
 
   if (withinMarketSpreadBps(validated) > DEFAULT_CLEAN_BASKET_FILTER_OPTIONS.maxLegSpreadBps) {
-    updateOpportunityStatus(journaledOpportunity.id, {
-      status: "rejected",
-      ...telemetry,
-      reason: "wide_leg_spread",
-    });
-    input.logger.warn("skipped invalid paper opportunity: wide_leg_spread.");
-
-    return {
-      paperTrades: 0,
-      skippedDuplicates: 0,
-      rejectedOpportunities: 1,
-      validatedOpportunities: 0,
-    };
+    return rejected("wide_leg_spread");
   }
 
   updateOpportunityStatus(journaledOpportunity.id, {
     status: "validated",
     ...telemetry,
+    ruleMatch: "reviewed",
     reason: validated.reason,
   });
+
+  const shares = validated.executableShares && validated.executableShares > 0
+    ? validated.executableShares
+    : 1;
 
   input.execute({
     strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
@@ -777,8 +783,8 @@ async function processWithinMarketOpportunity(
     opportunityId: journaledOpportunity.id,
     side: "YES",
     entryPrice: validated.askYes,
-    paperSizeUsd: validated.askYes,
-    paperSizeShares: 1,
+    paperSizeUsd: roundUsd(validated.askYes * shares),
+    paperSizeShares: shares,
     arbClass: WITHIN_MARKET_FAST_ARB_STRATEGY,
   });
   input.execute({
@@ -789,8 +795,8 @@ async function processWithinMarketOpportunity(
     opportunityId: journaledOpportunity.id,
     side: "NO",
     entryPrice: validated.askNo,
-    paperSizeUsd: validated.askNo,
-    paperSizeShares: 1,
+    paperSizeUsd: roundUsd(validated.askNo * shares),
+    paperSizeShares: shares,
     arbClass: WITHIN_MARKET_FAST_ARB_STRATEGY,
   });
   recordPaperFire({
@@ -802,6 +808,7 @@ async function processWithinMarketOpportunity(
   updateOpportunityStatus(journaledOpportunity.id, {
     status: "paper_fired",
     ...telemetry,
+    ruleMatch: "reviewed",
     reason: "paper_trade_recorded",
   });
   await sendPaperFireAlert({
@@ -809,9 +816,9 @@ async function processWithinMarketOpportunity(
     logger: input.logger,
     paperTrades: 2,
     sendAlert: input.sendAlert,
-        slug: input.opportunity.slug,
-        strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
-      });
+    slug: input.opportunity.slug,
+    strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
+  });
 
   return {
     paperTrades: 2,
@@ -939,6 +946,107 @@ function buildValidationTelemetry(
   };
 }
 
+/**
+ * Fee-aware economics of a validated NEG_RISK basket. Uses the basket sizing
+ * (walked per leg at the executable size) when present, otherwise the
+ * one-share average fills, so a rejected basket still gets honest numbers.
+ */
+export function buildNegRiskEconomics(
+  validated: ValidatedNegRiskOpportunity,
+  opportunity: NegRiskBracketOpportunity,
+  options: { nowMs: number; roleMode: ExecutionRoleMode; category?: string | null },
+): BasketEconomics | null {
+  const sizing = validated.basketSizing ?? null;
+  const legs = validated.legs.map((leg) => {
+    const sized = sizing?.legs.find((candidate: NegRiskBasketSizingLeg) => candidate.tokenId === leg.tokenId);
+    const price = sized?.averageFillPrice ?? leg.averageFillPrice;
+
+    return price === null
+      ? null
+      : {
+          venue: "polymarket" as const,
+          side: "NO" as const,
+          averageFillPrice: price,
+          shares: sized?.shares ?? 1,
+          category: options.category ?? null,
+        };
+  });
+
+  if (legs.length === 0 || legs.some((leg) => leg === null)) {
+    return null;
+  }
+
+  return computeBasketEconomics({
+    legs: legs.filter((leg): leg is NonNullable<typeof leg> => leg !== null),
+    payoutPerBasketShare: Math.max(1, validated.legs.length - 1),
+    roleMode: options.roleMode,
+    expectedResolutionAt: opportunity.expectedResolutionAt ?? null,
+    nowMs: options.nowMs,
+  });
+}
+
+export function buildWithinMarketEconomics(
+  validated: ValidatedWithinMarketOpportunity,
+  opportunity: WithinMarketArbOpportunity,
+  options: { nowMs: number; roleMode: ExecutionRoleMode },
+): BasketEconomics | null {
+  if (validated.askYes === null || validated.askNo === null) {
+    return null;
+  }
+
+  const shares =
+    validated.executableShares && validated.executableShares > 0
+      ? validated.executableShares
+      : 1;
+  const category = validated.category ?? opportunity.category ?? null;
+
+  return computeBasketEconomics({
+    legs: [
+      {
+        venue: "polymarket",
+        side: "YES",
+        averageFillPrice: validated.askYes,
+        shares,
+        category,
+      },
+      {
+        venue: "polymarket",
+        side: "NO",
+        averageFillPrice: validated.askNo,
+        shares,
+        category,
+      },
+    ],
+    payoutPerBasketShare: 1,
+    roleMode: options.roleMode,
+    expectedResolutionAt: opportunity.expectedResolutionAt ?? null,
+    nowMs: options.nowMs,
+  });
+}
+
+function buildEconomicsTelemetry(
+  economics: BasketEconomics | null,
+  depthUsd: number | null,
+): OpportunityTelemetryInput {
+  if (!economics) {
+    return { depthUsd };
+  }
+
+  return {
+    grossEdgeBps: economics.grossEdgeBps,
+    netEdgeBps: economics.executableNetEdgeBps,
+    feeUsd: economics.feeUsd,
+    capitalUsd: economics.capitalUsd,
+    depthUsd,
+    daysToResolution: economics.daysToResolution,
+    annualizedPct: economics.annualizedPct,
+    feeAdjustedEdge:
+      economics.basketShares > 0
+        ? roundPrice(economics.netProfitUsd / economics.basketShares)
+        : null,
+  };
+}
+
 function buildTimingTelemetry(
   expectedResolutionAt: number | null | undefined,
   nowMs: number,
@@ -1021,7 +1129,19 @@ function getNegRiskPaperLegSizing(
   };
 }
 
+function economicsLegFor(
+  economics: BasketEconomics | null,
+  index: number,
+): { role: string; shares: number; sizeUsd: number; feeUsd: number } | null {
+  const leg = economics?.legs[index];
+
+  return leg
+    ? { role: leg.role, shares: leg.shares, sizeUsd: leg.sizeUsd, feeUsd: leg.feeUsd }
+    : null;
+}
+
 function recordNegRiskLegTelemetry(input: {
+  economics: BasketEconomics | null;
   nowMs: number;
   opportunity: NegRiskBracketOpportunity;
   opportunityId: string;
@@ -1049,6 +1169,7 @@ function recordNegRiskLegTelemetry(input: {
       const rawLeg = input.opportunity.legs.find(
         (candidate) => candidate.noTokenId === leg.tokenId,
       );
+      const economicsLeg = economicsLegFor(input.economics, index);
 
       return {
         opportunityId: input.opportunityId,
@@ -1065,6 +1186,11 @@ function recordNegRiskLegTelemetry(input: {
         bestAsk: leg.bestAsk,
         fillable: leg.fillable,
         reason: leg.reason,
+        venue: "polymarket",
+        role: economicsLeg?.role ?? null,
+        shares: economicsLeg?.shares ?? null,
+        sizeUsd: economicsLeg?.sizeUsd ?? null,
+        feeUsd: economicsLeg?.feeUsd ?? null,
         legIndex: index,
         timestamp: input.nowMs,
       };
@@ -1073,6 +1199,7 @@ function recordNegRiskLegTelemetry(input: {
 }
 
 function recordWithinMarketLegTelemetry(input: {
+  economics: BasketEconomics | null;
   nowMs: number;
   opportunity: WithinMarketArbOpportunity;
   opportunityId: string;
@@ -1104,6 +1231,9 @@ function recordWithinMarketLegTelemetry(input: {
     });
   }
 
+  const yesEconomics = economicsLegFor(input.economics, 0);
+  const noEconomics = economicsLegFor(input.economics, 1);
+
   recordOpportunityLegs([
     {
       opportunityId: input.opportunityId,
@@ -1119,6 +1249,11 @@ function recordWithinMarketLegTelemetry(input: {
       bestAsk: input.validated.yes.bestAsk,
       fillable: input.validated.yes.fillable,
       reason: input.validated.yes.reason,
+      venue: "polymarket",
+      role: yesEconomics?.role ?? null,
+      shares: yesEconomics?.shares ?? null,
+      sizeUsd: yesEconomics?.sizeUsd ?? null,
+      feeUsd: yesEconomics?.feeUsd ?? null,
       legIndex: 0,
       timestamp: input.nowMs,
     },
@@ -1136,8 +1271,21 @@ function recordWithinMarketLegTelemetry(input: {
       bestAsk: input.validated.no.bestAsk,
       fillable: input.validated.no.fillable,
       reason: input.validated.no.reason,
+      venue: "polymarket",
+      role: noEconomics?.role ?? null,
+      shares: noEconomics?.shares ?? null,
+      sizeUsd: noEconomics?.sizeUsd ?? null,
+      feeUsd: noEconomics?.feeUsd ?? null,
       legIndex: 1,
       timestamp: input.nowMs,
     },
   ]);
+}
+
+function roundPrice(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function roundUsd(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
 }

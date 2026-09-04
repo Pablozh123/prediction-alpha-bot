@@ -25,6 +25,7 @@ describe("executeOrPaper", () => {
       slug: "rate-cuts-2026",
       question: "How many rate cuts in 2026?",
       tokenId: "token-no",
+      opportunityId: "opp-1",
       side: "NO",
       entryPrice: 0.66,
       paperSizeUsd: 10,
@@ -43,12 +44,28 @@ describe("executeOrPaper", () => {
       slug: "rate-cuts-2026",
       question: "How many rate cuts in 2026?",
       tokenId: "token-no",
+      opportunityId: "opp-1",
       side: "NO",
       sizeUsd: 10,
       sizeShares: 15.151515,
       entryPrice: 0.66,
-      arbClass: "neg_risk_bracket_arb"
+      arbClass: "neg_risk_bracket_arb",
+      linkStatus: "linked"
     });
+  });
+
+  it("refuses a paper trade that cannot be joined to a candidate", () => {
+    expect(() =>
+      executeOrPaper({
+        strategy: "neg_risk_bracket_arb",
+        tokenId: "token-no",
+        opportunityId: "   ",
+        side: "NO",
+        entryPrice: 0.66,
+        paperSizeUsd: 10
+      })
+    ).toThrow();
+    expect(listRecentPaperTrades(10)).toHaveLength(0);
   });
 
   it("rejects a live request because live trading is not implemented", () => {
@@ -57,6 +74,7 @@ describe("executeOrPaper", () => {
       slug: "rate-cuts-2026",
       question: "How many rate cuts in 2026?",
       tokenId: "token-no",
+      opportunityId: "opp-1",
       side: "NO",
       entryPrice: 0.66,
       paperSizeUsd: 10,
@@ -77,6 +95,7 @@ describe("executeOrPaper", () => {
       executeOrPaper({
         strategy: "",
         tokenId: "token-no",
+        opportunityId: "opp-1",
         side: "NO",
         entryPrice: 1.2,
         paperSizeUsd: 0

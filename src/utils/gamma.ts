@@ -28,6 +28,7 @@ export type NormalizedGammaMarket = {
   clobTokenIds: string[];
   outcomes: string[];
   outcomePrices: string[];
+  category?: string;
   expectedResolutionAt?: number | null;
 };
 
@@ -179,8 +180,30 @@ export function normalizeGammaMarket(
       market.outcomePrices,
       "outcomePrices"
     ),
+    ...(gammaCategory(market) ? { category: gammaCategory(market) } : {}),
     ...(expectedResolutionAt ? { expectedResolutionAt } : {})
   };
+}
+
+/**
+ * Category label of a Gamma market or event, when the payload carries one. The
+ * fee curve is chosen by category, so an unknown category falls back to the
+ * general taker rate downstream rather than being guessed here.
+ */
+export function gammaCategory(
+  record: Record<string, unknown> | null | undefined
+): string {
+  if (!record) {
+    return "";
+  }
+
+  return optionalString(
+    record.category ??
+      record.categorySlug ??
+      record.category_slug ??
+      record.categoryName ??
+      record.groupItemTitle
+  ).trim();
 }
 
 function optionalString(value: unknown): string {

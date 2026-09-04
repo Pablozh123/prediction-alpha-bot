@@ -47,6 +47,7 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      rejectionsByReason: {},
     });
     expect(logger.info).toHaveBeenCalledWith(
       "NEG_RISK bracket opportunities: 1",
@@ -72,7 +73,14 @@ describe("runScanCycle", () => {
       minLegDepthUsd: 100,
       legCount: 2,
       executableSum: 0.75,
-      feeAdjustedEdge: 0.25,
+      // 0.25 gross minus Polymarket taker fees on both NO legs at 0.35 / 0.40
+      feeAdjustedEdge: 0.226625,
+      netEdgeBps: 3021.67,
+      grossEdgeBps: 3333.33,
+      capitalUsd: 0.75,
+      feeUsd: 0.023375,
+      venues: ["polymarket"],
+      ruleMatch: "reviewed",
       basketSizeShares: 1,
       basketCostUsd: 0.75,
       basketPayoutUsd: 1,
@@ -110,6 +118,7 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      rejectionsByReason: {},
       error: "Gamma unavailable",
     });
     expect(logger.error).toHaveBeenCalledWith(
@@ -167,6 +176,7 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 1,
       rejectedOpportunities: 0,
+      rejectionsByReason: {},
     });
     expect(listRecentPaperTrades(10)).toHaveLength(2);
     expect(listRecentPaperTrades(10)[0]).toMatchObject({
@@ -215,6 +225,7 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      rejectionsByReason: {},
     });
     expect(listRecentPaperTrades(10)).toHaveLength(4);
   });
@@ -250,6 +261,7 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 1,
+      rejectionsByReason: { partial_basket_invalid: 1 },
     });
     expect(execute).not.toHaveBeenCalled();
     expect(sendAlert).not.toHaveBeenCalled();
@@ -281,6 +293,7 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 1,
+      rejectionsByReason: { nested_temporal_basket: 1 },
     });
     expect(execute).not.toHaveBeenCalled();
     expect(listRecentPaperTrades(10)).toEqual([]);
@@ -364,6 +377,7 @@ describe("runScanCycle", () => {
           fillable: true,
           averageFillPrice: 0.45,
           maxFillableUsd: 100,
+          depthShares: 10,
           bestBid: 0.44,
           bestAsk: 0.45,
           reason: "fillable",
@@ -377,6 +391,7 @@ describe("runScanCycle", () => {
           fillable: true,
           averageFillPrice: 0.52,
           maxFillableUsd: 100,
+          depthShares: 10,
           bestBid: 0.51,
           bestAsk: 0.52,
           reason: "fillable",
@@ -394,6 +409,7 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      rejectionsByReason: {},
     });
     expect(execute).toHaveBeenNthCalledWith(
       1,
@@ -431,7 +447,12 @@ describe("runScanCycle", () => {
       minLegDepthUsd: 100,
       legCount: 2,
       executableSum: 0.97,
-      feeAdjustedEdge: 0.03,
+      // 0.03 gross minus Polymarket taker fees on YES 0.45 and NO 0.52
+      feeAdjustedEdge: 0.005145,
+      grossEdgeBps: 309.28,
+      netEdgeBps: 53.04,
+      capitalUsd: 0.97,
+      ruleMatch: "reviewed",
     });
   });
 
@@ -483,6 +504,7 @@ describe("runScanCycle", () => {
           fillable: true,
           averageFillPrice: 0.45,
           maxFillableUsd: 100,
+          depthShares: 10,
           bestBid: 0.44,
           bestAsk: 0.45,
           reason: "fillable",
@@ -492,6 +514,7 @@ describe("runScanCycle", () => {
           fillable: true,
           averageFillPrice: 0.52,
           maxFillableUsd: 100,
+          depthShares: 10,
           bestBid: 0.51,
           bestAsk: 0.52,
           reason: "fillable",

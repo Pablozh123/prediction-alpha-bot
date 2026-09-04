@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   inflation_flagged INTEGER DEFAULT 0,
   resolution_reason TEXT,
   arb_class TEXT,
+  link_status TEXT,
   timestamp INTEGER NOT NULL,
   resolved_at INTEGER
 );
@@ -121,6 +122,18 @@ CREATE TABLE IF NOT EXISTS opportunities (
   expected_resolution_at INTEGER,
   duration_hours REAL,
   capital_lock_class TEXT,
+  opportunity_key TEXT,
+  title TEXT,
+  venues TEXT,
+  category TEXT,
+  gross_edge_bps REAL,
+  net_edge_bps REAL,
+  fee_usd REAL,
+  capital_usd REAL,
+  depth_usd REAL,
+  days_to_resolution REAL,
+  annualized_pct REAL,
+  rule_match TEXT,
   status TEXT NOT NULL,
   reason TEXT,
   token_ids TEXT,
@@ -129,6 +142,9 @@ CREATE TABLE IF NOT EXISTS opportunities (
 
 CREATE INDEX IF NOT EXISTS idx_opportunities_status_timestamp
 ON opportunities(status, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_key_timestamp
+ON opportunities(opportunity_key, timestamp);
 
 CREATE TABLE IF NOT EXISTS opportunity_legs (
   id TEXT PRIMARY KEY,
@@ -147,6 +163,11 @@ CREATE TABLE IF NOT EXISTS opportunity_legs (
   spread REAL,
   fillable INTEGER NOT NULL DEFAULT 0,
   reason TEXT,
+  venue TEXT,
+  role TEXT,
+  shares REAL,
+  size_usd REAL,
+  fee_usd REAL,
   leg_index INTEGER NOT NULL,
   timestamp INTEGER NOT NULL
 );
@@ -307,6 +328,7 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("paper_trades", "opportunity_id", "TEXT");
   ensureColumn("paper_trades", "size_shares", "REAL");
   ensureColumn("paper_trades", "resolution_reason", "TEXT");
+  ensureColumn("paper_trades", "link_status", "TEXT");
   ensureColumn("opportunities", "fillable_usd", "REAL");
   ensureColumn("opportunities", "min_leg_depth_usd", "REAL");
   ensureColumn("opportunities", "leg_count", "INTEGER");
@@ -323,6 +345,26 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("opportunities", "expected_resolution_at", "INTEGER");
   ensureColumn("opportunities", "duration_hours", "REAL");
   ensureColumn("opportunities", "capital_lock_class", "TEXT");
+  ensureColumn("opportunities", "opportunity_key", "TEXT");
+  ensureColumn("opportunities", "title", "TEXT");
+  ensureColumn("opportunities", "venues", "TEXT");
+  ensureColumn("opportunities", "category", "TEXT");
+  ensureColumn("opportunities", "gross_edge_bps", "REAL");
+  ensureColumn("opportunities", "net_edge_bps", "REAL");
+  ensureColumn("opportunities", "fee_usd", "REAL");
+  ensureColumn("opportunities", "capital_usd", "REAL");
+  ensureColumn("opportunities", "depth_usd", "REAL");
+  ensureColumn("opportunities", "days_to_resolution", "REAL");
+  ensureColumn("opportunities", "annualized_pct", "REAL");
+  ensureColumn("opportunities", "rule_match", "TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_opportunities_key_timestamp ON opportunities(opportunity_key, timestamp)",
+  );
+  ensureColumn("opportunity_legs", "venue", "TEXT");
+  ensureColumn("opportunity_legs", "role", "TEXT");
+  ensureColumn("opportunity_legs", "shares", "REAL");
+  ensureColumn("opportunity_legs", "size_usd", "REAL");
+  ensureColumn("opportunity_legs", "fee_usd", "REAL");
   ensureColumn("scanner_runs", "dedupe_skips", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("orderbook_snapshots", "event_slug", "TEXT");
   ensureColumn("orderbook_snapshots", "market_id", "TEXT");

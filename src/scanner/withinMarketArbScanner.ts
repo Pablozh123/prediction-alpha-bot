@@ -4,6 +4,7 @@ import {
 } from "../execution/executeOrPaper.js";
 import {
   fetchActiveEvents,
+  gammaCategory,
   normalizeGammaMarket,
   type GammaRawEvent,
 } from "../utils/gamma.js";
@@ -28,6 +29,7 @@ export type WithinMarketArbMarket = {
     yes: string;
     no: string;
   };
+  category?: string | null;
   expectedResolutionAt?: number | null;
 };
 
@@ -42,6 +44,7 @@ export type WithinMarketArbOpportunity = {
     yes: string;
     no: string;
   };
+  category?: string | null;
   expectedResolutionAt?: number | null;
   reason: "yes_no_ask_sum_below_threshold";
 };
@@ -58,6 +61,8 @@ export type ScanWithinMarketArbOpportunitiesOptions =
 
 export type PaperWithinMarketArbOptions = {
   execute?: typeof executeOrPaper;
+  /** Journal id of the candidate; every paper trade must be traceable to one. */
+  opportunityId: string;
   paperSizeUsd?: number;
 };
 
@@ -133,6 +138,7 @@ export function scanWithinMarketGammaEvents(
 
   for (const event of events) {
     const eventResolutionAt = deriveExpectedResolutionAt(event);
+    const eventCategory = gammaCategory(event);
     const rawMarkets = Array.isArray(event.markets) ? event.markets : [];
 
     for (const rawMarket of rawMarkets) {
@@ -162,6 +168,9 @@ export function scanWithinMarketGammaEvents(
             yes: yesTokenId ?? "",
             no: noTokenId ?? "",
           },
+          ...((market.category || eventCategory)
+            ? { category: market.category || eventCategory }
+            : {}),
           ...((market.expectedResolutionAt ?? eventResolutionAt)
             ? { expectedResolutionAt: market.expectedResolutionAt ?? eventResolutionAt }
             : {}),
@@ -203,6 +212,7 @@ export function scanWithinMarketArbs(
         totalCost,
         expectedEdge: roundPrice(1 - totalCost),
         tokenIds: market.tokenIds,
+        ...(market.category ? { category: market.category } : {}),
         ...(market.expectedResolutionAt
           ? { expectedResolutionAt: market.expectedResolutionAt }
           : {}),
@@ -220,7 +230,7 @@ export function scanWithinMarketArbs(
 
 export function paperWithinMarketArbOpportunity(
   opportunity: WithinMarketArbOpportunity,
-  options: PaperWithinMarketArbOptions = {},
+  options: PaperWithinMarketArbOptions,
 ): ExecuteOrPaperResult[] {
   const execute = options.execute ?? executeOrPaper;
   const paperSizeUsd = options.paperSizeUsd ?? DEFAULT_PAPER_SIZE_USD;
@@ -231,20 +241,22 @@ export function paperWithinMarketArbOpportunity(
       slug: opportunity.slug,
       question: opportunity.question,
       tokenId: opportunity.tokenIds.yes,
+      opportunityId: options.opportunityId,
       side: "YES",
       entryPrice: opportunity.askYes,
       paperSizeUsd,
-    arbClass: WITHIN_MARKET_ARB_STRATEGY,
+      arbClass: WITHIN_MARKET_ARB_STRATEGY,
     }),
     execute({
       strategy: WITHIN_MARKET_ARB_STRATEGY,
       slug: opportunity.slug,
       question: opportunity.question,
       tokenId: opportunity.tokenIds.no,
+      opportunityId: options.opportunityId,
       side: "NO",
       entryPrice: opportunity.askNo,
       paperSizeUsd,
-    arbClass: WITHIN_MARKET_ARB_STRATEGY,
+      arbClass: WITHIN_MARKET_ARB_STRATEGY,
     }),
   ];
 }
