@@ -38,7 +38,7 @@ const DEFAULT_CROSS_VENUE_LIVE_FEED_PATH = resolve(
 );
 const MAX_LIVE_FEED_ENTRIES = 500;
 
-type CrossVenueConfigFile = {
+export type CrossVenueConfigFile = {
   feesCents?: CrossVenueFeeConfig;
   minNetCents?: number;
   pairs?: CrossVenuePair[];
@@ -1214,7 +1214,7 @@ function formatDiscoveryDiagnostics(
   ].join("\n");
 }
 
-function loadCrossVenueConfig(path: string): CrossVenueConfigFile {
+export function loadCrossVenueConfig(path: string): CrossVenueConfigFile {
   if (!existsSync(path)) {
     return { pairs: [] };
   }
@@ -1270,6 +1270,9 @@ function parsePair(value: unknown): CrossVenuePair {
     ...(canonicalOutcome ? { canonicalOutcome } : {}),
     kalshi: {
       ticker: stringValue(value.kalshi.ticker),
+      ...(stringValue(value.kalshi.title)
+        ? { title: stringValue(value.kalshi.title) }
+        : {}),
       liquidityDollars:
         "liquidityDollars" in value.kalshi
           ? parseNullableNumber(value.kalshi.liquidityDollars)
@@ -1281,6 +1284,9 @@ function parsePair(value: unknown): CrossVenuePair {
     },
     polymarket: {
       slug: stringValue(value.polymarket.slug),
+      ...(stringValue(value.polymarket.question)
+        ? { question: stringValue(value.polymarket.question) }
+        : {}),
       yesTokenId: stringValue(value.polymarket.yesTokenId),
       noTokenId: stringValue(value.polymarket.noTokenId),
       liquidityDollars:

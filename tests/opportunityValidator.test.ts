@@ -34,7 +34,39 @@ describe("validateWithinMarketOpportunity", () => {
     });
   });
 
-  it("rejects the basket when only one token is fillable", async () => {
+  it("sizes the basket at the target and reprices both legs at that size", async () => {
+    const result = await validateWithinMarketOpportunity(
+      makeWithinMarketOpportunity(),
+      10,
+      {
+        fetchOrderBook: async (tokenId) => {
+          if (tokenId === "yes-token") {
+            return {
+              bids: [{ price: 0.43, size: 100 }],
+              asks: [
+                { price: 0.45, size: 5 },
+                { price: 0.47, size: 100 },
+              ],
+            };
+          }
+
+          return makeOrderBook(0.52, 100);
+        },
+      },
+    );
+
+    // 10 USD at the quoted 0.50 + 0.50 buys 10 shares; the YES ladder walks
+    // 5 at 0.45 and 5 at 0.47, so the executable YES price is 0.46, not 0.45.
+    expect(result.targetShares).toBe(10);
+    expect(result.executableShares).toBe(10);
+    expect(result.depthLimited).toBe(false);
+    expect(result.askYes).toBe(0.46);
+    expect(result.totalCost).toBe(0.98);
+    expect(result.expectedGrossEdge).toBe(0.02);
+    expect(result.fillableUsd).toBe(9.8);
+  });
+
+  it("prices a shallow book at its depth and flags the basket depth-limited", async () => {
     const result = await validateWithinMarketOpportunity(
       makeWithinMarketOpportunity(),
       10,
@@ -49,10 +81,35 @@ describe("validateWithinMarketOpportunity", () => {
       },
     );
 
+    expect(result.valid).toBe(true);
+    expect(result.fillable).toBe(true);
+    expect(result.depthLimited).toBe(true);
+    expect(result.executableShares).toBe(0.5);
+    expect(result.fillableUsd).toBe(0.485);
+    expect(result.yes.fillable).toBe(true);
+    expect(result.no.fillable).toBe(true);
+  });
+
+  it("rejects the basket when one leg has no asks at all", async () => {
+    const result = await validateWithinMarketOpportunity(
+      makeWithinMarketOpportunity(),
+      10,
+      {
+        fetchOrderBook: async (tokenId) => {
+          if (tokenId === "yes-token") {
+            return makeOrderBook(0.45, 100);
+          }
+
+          return { bids: [{ price: 0.5, size: 10 }], asks: [] };
+        },
+      },
+    );
+
     expect(result.valid).toBe(false);
     expect(result.fillable).toBe(false);
     expect(result.reason).toBe("partial_basket_invalid");
-    expect(result.yes.fillable).toBe(true);
+    expect(result.executableShares).toBe(0);
+    expect(result.yes.fillable).toBe(false);
     expect(result.no.fillable).toBe(false);
   });
 });

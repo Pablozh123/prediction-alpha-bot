@@ -188,6 +188,7 @@ describe("paperWithinMarketArbOpportunity", () => {
           inflationFlagged: false,
           resolutionReason: null,
           arbClass: input.arbClass ?? null,
+          linkStatus: "linked",
           timestamp: 1,
           resolvedAt: null,
         },
@@ -196,6 +197,7 @@ describe("paperWithinMarketArbOpportunity", () => {
 
     const results = paperWithinMarketArbOpportunity(opportunity!, {
       execute,
+      opportunityId: "opp-within-1",
       paperSizeUsd: 2,
     });
 
@@ -205,6 +207,7 @@ describe("paperWithinMarketArbOpportunity", () => {
       slug: "binary-market",
       question: "Will this resolve yes?",
       tokenId: "yes-token",
+      opportunityId: "opp-within-1",
       side: "YES",
       entryPrice: 0.45,
       paperSizeUsd: 2,
@@ -215,6 +218,7 @@ describe("paperWithinMarketArbOpportunity", () => {
       slug: "binary-market",
       question: "Will this resolve yes?",
       tokenId: "no-token",
+      opportunityId: "opp-within-1",
       side: "NO",
       entryPrice: 0.52,
       paperSizeUsd: 2,

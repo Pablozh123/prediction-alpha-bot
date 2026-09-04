@@ -22,6 +22,8 @@ export type ValidatedTokenAsk = {
   fillable: boolean;
   averageFillPrice: number | null;
   maxFillableUsd: number;
+  /** Total shares resting on the ask side; the leg's depth in shares. */
+  depthShares: number;
   bestBid: number | null;
   bestAsk: number | null;
   reason: "fillable" | "not_fillable" | "orderbook_error";
@@ -35,6 +37,7 @@ export type ValidatedWithinMarketOpportunity = {
     yes: string;
     no: string;
   };
+  category?: string | null;
   askYes: number | null;
   askNo: number | null;
   totalCost: number | null;
@@ -44,6 +47,12 @@ export type ValidatedWithinMarketOpportunity = {
   legCount: number;
   executableSum: number | null;
   feeAdjustedEdge: number | null;
+  /** Shares the target size asked for at the quoted prices. */
+  targetShares?: number;
+  /** Shares both legs can actually fill; the size every number above is priced at. */
+  executableShares?: number;
+  /** True when the book, not the target, decided the size. */
+  depthLimited?: boolean;
   fillable: boolean;
   valid: boolean;
   reason: OpportunityValidationReason;
@@ -76,6 +85,7 @@ export type ValidatedNegRiskOpportunity = {
   legCount: number;
   feeAdjustedEdge: number | null;
   basketSizing?: NegRiskBasketSizing | null;
+  targetShares?: number;
   fillable: boolean;
   valid: boolean;
   reason: OpportunityValidationReason;
@@ -86,6 +96,15 @@ export type OpportunityValidatorOptions = {
   fetchOrderBook?: (tokenId: string) => Promise<OrderBook>;
 };
 
+/**
+ * Price a within-market YES+NO basket against the book that would fill it.
+ *
+ * `targetSizeUsd` is the capital the paper trade wants to deploy. It is turned
+ * into a share count at the quoted prices, then both ask ladders are walked
+ * for that many shares. If either book is shallower, the basket is priced at
+ * the common fillable size instead and flagged `depthLimited`: the quoted edge
+ * is only a pre-filter, the walked prices are the numbers that count.
+ */
 export async function validateWithinMarketOpportunity(
   opportunity: WithinMarketArbOpportunity,
   targetSizeUsd: number,
@@ -94,6 +113,7 @@ export async function validateWithinMarketOpportunity(
   const fetchBook = options.fetchOrderBook ?? fetchOrderBook;
   const yesTokenId = opportunity.tokenIds.yes;
   const noTokenId = opportunity.tokenIds.no;
+  const category = opportunity.category ?? null;
 
   if (!yesTokenId.trim() || !noTokenId.trim()) {
     const emptyYes = emptyTokenValidation(yesTokenId);
@@ -103,6 +123,7 @@ export async function validateWithinMarketOpportunity(
       slug: opportunity.slug,
       question: opportunity.question,
       tokenIds: opportunity.tokenIds,
+      category,
       askYes: null,
       askNo: null,
       totalCost: null,
@@ -112,6 +133,9 @@ export async function validateWithinMarketOpportunity(
       legCount: 2,
       executableSum: null,
       feeAdjustedEdge: null,
+      targetShares: 0,
+      executableShares: 0,
+      depthLimited: false,
       fillable: false,
       valid: false,
       reason: "invalid_token_ids",
@@ -120,11 +144,23 @@ export async function validateWithinMarketOpportunity(
     };
   }
 
-  const [yes, no] = await Promise.all([
+  const quotedSum = opportunity.askYes + opportunity.askNo;
+  const targetShares =
+    Number.isFinite(quotedSum) && quotedSum > 0 && targetSizeUsd > 0
+      ? floorShares(targetSizeUsd / quotedSum)
+      : 0;
+
+  const [yesBase, noBase] = await Promise.all([
     validateTokenAsk(yesTokenId, targetSizeUsd, fetchBook),
     validateTokenAsk(noTokenId, targetSizeUsd, fetchBook),
   ]);
-  const fillable = yes.fillable && no.fillable;
+  const executableShares = floorShares(
+    Math.min(targetShares, yesBase.depthShares, noBase.depthShares),
+  );
+  const depthLimited = executableShares > 0 && executableShares < targetShares;
+  const yes = repriceAtShares(yesBase, executableShares);
+  const no = repriceAtShares(noBase, executableShares);
+  const fillable = yes.fillable && no.fillable && executableShares > 0;
   const totalCost =
     yes.averageFillPrice === null || no.averageFillPrice === null
       ? null
@@ -139,15 +175,20 @@ export async function validateWithinMarketOpportunity(
     slug: opportunity.slug,
     question: opportunity.question,
     tokenIds: opportunity.tokenIds,
+    category,
     askYes: yes.averageFillPrice,
     askNo: no.averageFillPrice,
     totalCost,
     expectedGrossEdge,
-    fillableUsd: roundPrice(minLegDepthUsd * 2),
+    fillableUsd:
+      totalCost === null ? 0 : roundPrice(executableShares * totalCost),
     minLegDepthUsd,
     legCount: 2,
     executableSum: totalCost,
     feeAdjustedEdge: expectedGrossEdge,
+    targetShares,
+    executableShares,
+    depthLimited,
     fillable,
     valid: fillable,
     reason: fillable ? "orderbook_validated" : "partial_basket_invalid",
@@ -156,12 +197,20 @@ export async function validateWithinMarketOpportunity(
   };
 }
 
+/**
+ * Price a NEG_RISK NO basket against every leg's book. The basket is sized at
+ * the share count the target capital buys (payout per basket share is
+ * legs - 1), capped by `calculateNegRiskBasketSizing` at the largest size that
+ * still has positive gross profit.
+ */
 export async function validateNegRiskOpportunity(
   opportunity: NegRiskBracketOpportunity,
   targetSizeUsd: number,
   options: OpportunityValidatorOptions = {},
 ): Promise<ValidatedNegRiskOpportunity> {
   const fetchBook = options.fetchOrderBook ?? fetchOrderBook;
+  const payoutPerBasketShare = Math.max(1, opportunity.legs.length - 1);
+  const targetShares = floorShares(Math.max(0, targetSizeUsd) / payoutPerBasketShare);
   const validations = await Promise.all(
     opportunity.legs.map(async (leg): Promise<ValidatedNegRiskLeg> => {
       const tokenId = leg.noTokenId;
@@ -211,6 +260,7 @@ export async function validateNegRiskOpportunity(
     minLegDepthUsd,
     legCount: validations.length,
     feeAdjustedEdge: expectedGrossEdge,
+    targetShares,
     basketSizing: fillable
       ? calculateNegRiskBasketSizing(
           validations.map((leg) => ({
@@ -218,6 +268,7 @@ export async function validateNegRiskOpportunity(
             slug: leg.slug,
             orderbook: leg.orderbook,
           })),
+          Math.max(1, targetShares),
         )
       : null,
     fillable,
@@ -237,12 +288,23 @@ async function validateTokenAsk(
     const best = getBestBidAsk(orderbook);
     const sizeWalk = walkAsksForSize(orderbook, targetSizeUsd);
     const shareWalk = walkAsksForShares(orderbook, 1);
+    const depthShares = orderbook.asks
+      .filter(
+        (level) =>
+          Number.isFinite(level.price) &&
+          level.price > 0 &&
+          level.price < 1 &&
+          Number.isFinite(level.size) &&
+          level.size > 0,
+      )
+      .reduce((sum, level) => sum + level.size, 0);
 
     return {
       tokenId,
       fillable: shareWalk.fillable,
       averageFillPrice: shareWalk.averageFillPrice ?? sizeWalk.averageFillPrice,
       maxFillableUsd: sizeWalk.maxFillableUsd,
+      depthShares: roundShares(depthShares),
       bestBid: best.bestBid,
       bestAsk: best.bestAsk,
       reason: shareWalk.fillable ? "fillable" : "not_fillable",
@@ -256,12 +318,31 @@ async function validateTokenAsk(
   }
 }
 
+function repriceAtShares(
+  token: ValidatedTokenAsk,
+  shares: number,
+): ValidatedTokenAsk {
+  if (!token.orderbook || shares <= 0) {
+    return { ...token, fillable: false, reason: token.reason === "orderbook_error" ? "orderbook_error" : "not_fillable" };
+  }
+
+  const walk = walkAsksForShares(token.orderbook, shares);
+
+  return {
+    ...token,
+    fillable: walk.fillable,
+    averageFillPrice: walk.averageFillPrice ?? token.averageFillPrice,
+    reason: walk.fillable ? "fillable" : "not_fillable",
+  };
+}
+
 function emptyTokenValidation(tokenId: string): ValidatedTokenAsk {
   return {
     tokenId,
     fillable: false,
     averageFillPrice: null,
     maxFillableUsd: 0,
+    depthShares: 0,
     bestBid: null,
     bestAsk: null,
     reason: "not_fillable",
@@ -270,4 +351,17 @@ function emptyTokenValidation(tokenId: string): ValidatedTokenAsk {
 
 function roundPrice(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function roundShares(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+/** Floor to four decimals: the CLOB counts microshares, rounding up rejects. */
+function floorShares(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  return Math.floor(value * 10_000) / 10_000;
 }

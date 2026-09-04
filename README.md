@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/Pablozh123/prediction-alpha-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/Pablozh123/prediction-alpha-bot/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020-3178C6?logo=typescript&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-239%20passing-2EA44F)
+![Tests](https://img.shields.io/badge/tests-286%20passing-2EA44F)
 ![Mode](https://img.shields.io/badge/execution-paper--only-8A6D3B)
 
 Cross-venue and neg-risk opportunity scanner for Polymarket and Kalshi.
-64 source modules, 239 tests, and 89 dated report artifacts from live paper
+72 source modules, 286 tests, and 89 dated report artifacts from live paper
 runs. Read-only market data throughout; no order path exists in this codebase.
 
 ## What it found
@@ -63,13 +63,48 @@ a scanner that never looks back is only reporting its own inputs.
 | **Paper PnL only on known outcomes** | `calculatePaperPnlOnlyIfResolutionKnown` returns nothing for unresolved markets. 167 paper trades currently carry `pnl=null` - honest, not broken. |
 | **Injected auth for Kalshi websockets** | The ingestor takes an auth-header provider from the caller. This repository never builds, stores or requests a credential. |
 
+## Rescan 2026-09-04
+
+The scanner was re-based on what the runs since May showed. Candidates are
+priced against the book depth their target size would actually walk, net of
+the venue fee curves (Polymarket per category, Kalshi with cent rounding,
+schedule 2026-07-30), and only a basket whose net edge stays positive at the
+executable size counts as a chance. Every chance carries `days_to_resolution`
+and a linearly annualised return, because a gap that stands open for hours is
+locked capital, not arbitrage. Every paper trade must name the candidate that
+caused it. Details and the pre-registered 14-day measurement window are in
+[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md#neuaufsetzung-2026-09-04).
+
 ## Quick start
 
 ```bash
 npm install
 npm run dev          # interval scanner loop, paper-only
-npm run dev:once     # one scan cycle, then exit
+npm run dev:once     # one scan cycle (plus one cross-venue pass), then exit
 ```
+
+### Feed for the website
+
+Set `ARB_PUBLISH_DIR` in `.env` to a directory outside the repository. After
+every cycle, and at least every five minutes, the loop writes `arb_scan.json`
+there atomically (schema `arb_scan/1`, validated before the write, no local
+paths). Without the variable nothing is published and the start-up log says
+so once. `health.alive` turns false when the last cycle is older than three
+scan intervals (floor: ten minutes); that is the heartbeat the website should
+watch.
+
+### Running it permanently (Windows, no admin rights)
+
+```powershell
+npm ci
+.\scripts\install_scanner_task.ps1          # registers PredictionAlphaBotScanner (at logon, restarts on crash)
+Start-ScheduledTask -TaskName PredictionAlphaBotScanner
+.\scripts\install_scanner_task.ps1 -Uninstall
+```
+
+The task runs `scripts\run_scanner.cmd`, a restart loop around `npm run dev`
+that logs to `logs\scanner.log` with size rotation. Both scripts use paths
+relative to the repository.
 
 | Command group | Purpose |
 |---|---|
@@ -81,13 +116,19 @@ npm run dev:once     # one scan cycle, then exit
 | `npm run forward:clean:start` | Isolated 24h forward run with its own DB and logs |
 | `npm run coverage:report` | Snapshot coverage and near-miss quality of a dataset |
 | `npm run paper:report` / `paper:resolve:batch` | Paper trade reporting and resolution against outcomes |
+| `npm run paper:backfill-links` | Join legacy paper trades to their candidate, or mark them `legacy_unlinked` |
 | `npm run telegram:setup` / `telegram:daily` | Optional local Telegram alerts and daily digest |
 | `npm run typecheck && npm test && npm run lint` | The full local gate, identical to CI |
 
 Scanner behaviour is configured through `.env` (see `.env.example`): fast-scan
 interval, `MAX_SHORT_ARB_DURATION_HOURS=72` to block unknown or long-duration
-opportunities from paper-firing, and clean-basket floors for edge, depth and
-spread. Long-duration clean baskets stay visible in reports as diagnostic rows.
+opportunities from paper-firing, clean-basket floors for edge, depth and
+spread, `PAPER_TARGET_SIZE_USD` (capital each basket targets against the
+book), `MIN_EXECUTABLE_DEPTH_USD`, `EXECUTION_ROLE_MODE` (`taker` default,
+`maker_first` optional), the cross-venue lane (`CROSS_VENUE_SCAN_ENABLED`,
+`CROSS_VENUE_SCAN_INTERVAL_MS`) and the in-loop paper resolution
+(`PAPER_RESOLVE_INTERVAL_MS`). Long-duration clean baskets stay visible in
+reports as diagnostic rows.
 
 ## Paper-only status
 

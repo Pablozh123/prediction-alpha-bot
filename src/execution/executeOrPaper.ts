@@ -12,7 +12,10 @@ const executeOrPaperInputSchema = z.object({
   slug: optionalText,
   question: optionalText,
   tokenId: z.string().trim().min(1),
-  opportunityId: optionalText,
+  // Every paper trade must join back to the candidate that caused it. 147 of
+  // the 167 trades from the May 2026 runs could not, and a resolved-PnL
+  // analysis without that join reports its own inputs back to itself.
+  opportunityId: z.string().trim().min(1),
   side: z.enum(["YES", "NO"]),
   entryPrice: z.number().finite().min(0).max(1),
   paperSizeUsd: z.number().finite().positive(),
@@ -26,7 +29,7 @@ export type ExecuteOrPaperInput = {
   slug?: string;
   question?: string;
   tokenId: string;
-  opportunityId?: string;
+  opportunityId: string;
   side: PaperTradeSide;
   entryPrice: number;
   paperSizeUsd: number;

@@ -8,6 +8,13 @@ export type OpportunityStatus =
   | "rejected"
   | "paper_fired";
 
+/**
+ * How far the resolution rules of a matched pair have been compared. Cross-venue
+ * pairs stay `unverified` until a person has read both rulebooks; the scanner
+ * never promotes this on its own. `mismatch` is a hard exclusion.
+ */
+export type RuleMatchStatus = "unverified" | "reviewed" | "mismatch";
+
 export type OpportunityTelemetryInput = {
   executableEdge?: number | null;
   fillableUsd?: number | null;
@@ -26,6 +33,18 @@ export type OpportunityTelemetryInput = {
   expectedResolutionAt?: number | null;
   durationHours?: number | null;
   capitalLockClass?: CapitalLockClass | null;
+  opportunityKey?: string | null;
+  title?: string | null;
+  venues?: string[] | null;
+  category?: string | null;
+  grossEdgeBps?: number | null;
+  netEdgeBps?: number | null;
+  feeUsd?: number | null;
+  capitalUsd?: number | null;
+  depthUsd?: number | null;
+  daysToResolution?: number | null;
+  annualizedPct?: number | null;
+  ruleMatch?: RuleMatchStatus | null;
 };
 
 export type RecordOpportunityInput = OpportunityTelemetryInput & {
@@ -65,6 +84,18 @@ export type OpportunityRecord = {
   expectedResolutionAt: number | null;
   durationHours: number | null;
   capitalLockClass: CapitalLockClass | null;
+  opportunityKey: string | null;
+  title: string | null;
+  venues: string[];
+  category: string | null;
+  grossEdgeBps: number | null;
+  netEdgeBps: number | null;
+  feeUsd: number | null;
+  capitalUsd: number | null;
+  depthUsd: number | null;
+  daysToResolution: number | null;
+  annualizedPct: number | null;
+  ruleMatch: RuleMatchStatus | null;
   status: OpportunityStatus;
   reason: string | null;
   tokenIds: string[];
@@ -93,6 +124,18 @@ type OpportunityRow = {
   expected_resolution_at: number | null;
   duration_hours: number | null;
   capital_lock_class: CapitalLockClass | null;
+  opportunity_key: string | null;
+  title: string | null;
+  venues: string | null;
+  category: string | null;
+  gross_edge_bps: number | null;
+  net_edge_bps: number | null;
+  fee_usd: number | null;
+  capital_usd: number | null;
+  depth_usd: number | null;
+  days_to_resolution: number | null;
+  annualized_pct: number | null;
+  rule_match: RuleMatchStatus | null;
   status: OpportunityStatus;
   reason: string | null;
   token_ids: string | null;
@@ -104,9 +147,69 @@ type StatusCountRow = {
   count: number;
 };
 
+const SELECT_COLUMNS = `
+  id,
+  strategy,
+  slug,
+  raw_edge,
+  executable_edge,
+  fillable_usd,
+  min_leg_depth_usd,
+  leg_count,
+  executable_sum,
+  fee_adjusted_edge,
+  basket_size_shares,
+  basket_cost_usd,
+  basket_payout_usd,
+  basket_profit_usd,
+  edge_bps,
+  roi_bps,
+  max_positive_basket_shares,
+  max_positive_basket_cost_usd,
+  expected_resolution_at,
+  duration_hours,
+  capital_lock_class,
+  opportunity_key,
+  title,
+  venues,
+  category,
+  gross_edge_bps,
+  net_edge_bps,
+  fee_usd,
+  capital_usd,
+  depth_usd,
+  days_to_resolution,
+  annualized_pct,
+  rule_match,
+  status,
+  reason,
+  token_ids,
+  timestamp
+`;
+
+/**
+ * Stable identity of a candidate across cycles: the same basket seen again
+ * ten seconds later gets the same key, which is what `first_seen_at` and
+ * `open_seconds` on the published feed are computed from.
+ */
+export function buildOpportunityKey(input: {
+  strategy: string;
+  slug?: string | null;
+  tokenIds?: string[] | null;
+}): string {
+  const tokens = [...(input.tokenIds ?? [])].map((token) => token.trim()).filter(Boolean).sort();
+
+  return [
+    `strategy=${input.strategy}`,
+    `slug=${(input.slug ?? "").trim()}`,
+    `tokens=${tokens.join(",")}`,
+  ].join("|");
+}
+
 export function recordOpportunity(
   input: RecordOpportunityInput
 ): OpportunityRecord {
+  const tokenIds = input.tokenIds ?? [];
   const record: OpportunityRecord = {
     id: uuidv4(),
     strategy: input.strategy,
@@ -129,9 +232,23 @@ export function recordOpportunity(
     expectedResolutionAt: input.expectedResolutionAt ?? null,
     durationHours: input.durationHours ?? null,
     capitalLockClass: input.capitalLockClass ?? null,
+    opportunityKey:
+      input.opportunityKey ??
+      buildOpportunityKey({ strategy: input.strategy, slug: input.slug, tokenIds }),
+    title: input.title ?? null,
+    venues: input.venues ?? [],
+    category: input.category ?? null,
+    grossEdgeBps: input.grossEdgeBps ?? null,
+    netEdgeBps: input.netEdgeBps ?? null,
+    feeUsd: input.feeUsd ?? null,
+    capitalUsd: input.capitalUsd ?? null,
+    depthUsd: input.depthUsd ?? null,
+    daysToResolution: input.daysToResolution ?? null,
+    annualizedPct: input.annualizedPct ?? null,
+    ruleMatch: input.ruleMatch ?? null,
     status: input.status ?? "raw_found",
     reason: input.reason ?? null,
-    tokenIds: input.tokenIds ?? [],
+    tokenIds,
     timestamp: input.timestamp ?? Date.now()
   };
 
@@ -160,6 +277,18 @@ export function recordOpportunity(
         expected_resolution_at,
         duration_hours,
         capital_lock_class,
+        opportunity_key,
+        title,
+        venues,
+        category,
+        gross_edge_bps,
+        net_edge_bps,
+        fee_usd,
+        capital_usd,
+        depth_usd,
+        days_to_resolution,
+        annualized_pct,
+        rule_match,
         status,
         reason,
         token_ids,
@@ -186,6 +315,18 @@ export function recordOpportunity(
         @expectedResolutionAt,
         @durationHours,
         @capitalLockClass,
+        @opportunityKey,
+        @title,
+        @venues,
+        @category,
+        @grossEdgeBps,
+        @netEdgeBps,
+        @feeUsd,
+        @capitalUsd,
+        @depthUsd,
+        @daysToResolution,
+        @annualizedPct,
+        @ruleMatch,
         @status,
         @reason,
         @tokenIds,
@@ -195,6 +336,7 @@ export function recordOpportunity(
     )
     .run({
       ...record,
+      venues: JSON.stringify(record.venues),
       tokenIds: JSON.stringify(record.tokenIds)
     });
 
@@ -228,6 +370,18 @@ export function updateOpportunityStatus(
         expected_resolution_at = COALESCE(@expectedResolutionAt, expected_resolution_at),
         duration_hours = COALESCE(@durationHours, duration_hours),
         capital_lock_class = COALESCE(@capitalLockClass, capital_lock_class),
+        opportunity_key = COALESCE(@opportunityKey, opportunity_key),
+        title = COALESCE(@title, title),
+        venues = COALESCE(@venues, venues),
+        category = COALESCE(@category, category),
+        gross_edge_bps = COALESCE(@grossEdgeBps, gross_edge_bps),
+        net_edge_bps = COALESCE(@netEdgeBps, net_edge_bps),
+        fee_usd = COALESCE(@feeUsd, fee_usd),
+        capital_usd = COALESCE(@capitalUsd, capital_usd),
+        depth_usd = COALESCE(@depthUsd, depth_usd),
+        days_to_resolution = COALESCE(@daysToResolution, days_to_resolution),
+        annualized_pct = COALESCE(@annualizedPct, annualized_pct),
+        rule_match = COALESCE(@ruleMatch, rule_match),
         reason = @reason
       WHERE id = @id
       `
@@ -252,41 +406,24 @@ export function updateOpportunityStatus(
       expectedResolutionAt: input.expectedResolutionAt ?? null,
       durationHours: input.durationHours ?? null,
       capitalLockClass: input.capitalLockClass ?? null,
+      opportunityKey: input.opportunityKey ?? null,
+      title: input.title ?? null,
+      venues: input.venues ? JSON.stringify(input.venues) : null,
+      category: input.category ?? null,
+      grossEdgeBps: input.grossEdgeBps ?? null,
+      netEdgeBps: input.netEdgeBps ?? null,
+      feeUsd: input.feeUsd ?? null,
+      capitalUsd: input.capitalUsd ?? null,
+      depthUsd: input.depthUsd ?? null,
+      daysToResolution: input.daysToResolution ?? null,
+      annualizedPct: input.annualizedPct ?? null,
+      ruleMatch: input.ruleMatch ?? null,
       reason: input.reason ?? null
     });
 
   const row = getDb()
     .prepare<OpportunityRow>(
-      `
-      SELECT
-        id,
-        strategy,
-        slug,
-        raw_edge,
-        executable_edge,
-        fillable_usd,
-        min_leg_depth_usd,
-        leg_count,
-        executable_sum,
-        fee_adjusted_edge,
-        basket_size_shares,
-        basket_cost_usd,
-        basket_payout_usd,
-        basket_profit_usd,
-        edge_bps,
-        roi_bps,
-        max_positive_basket_shares,
-        max_positive_basket_cost_usd,
-        expected_resolution_at,
-        duration_hours,
-        capital_lock_class,
-        status,
-        reason,
-        token_ids,
-        timestamp
-      FROM opportunities
-      WHERE id = ?
-      `
+      `SELECT ${SELECT_COLUMNS} FROM opportunities WHERE id = ?`
     )
     .get(id);
 
@@ -300,37 +437,7 @@ export function updateOpportunityStatus(
 export function listRecentOpportunities(limit: number): OpportunityRecord[] {
   return getDb()
     .prepare<OpportunityRow>(
-      `
-      SELECT
-        id,
-        strategy,
-        slug,
-        raw_edge,
-        executable_edge,
-        fillable_usd,
-        min_leg_depth_usd,
-        leg_count,
-        executable_sum,
-        fee_adjusted_edge,
-        basket_size_shares,
-        basket_cost_usd,
-        basket_payout_usd,
-        basket_profit_usd,
-        edge_bps,
-        roi_bps,
-        max_positive_basket_shares,
-        max_positive_basket_cost_usd,
-        expected_resolution_at,
-        duration_hours,
-        capital_lock_class,
-        status,
-        reason,
-        token_ids,
-        timestamp
-      FROM opportunities
-      ORDER BY timestamp DESC
-      LIMIT ?
-      `
+      `SELECT ${SELECT_COLUMNS} FROM opportunities ORDER BY timestamp DESC LIMIT ?`
     )
     .all(limit)
     .map(mapOpportunityRow);
@@ -342,32 +449,7 @@ export function listRecentRejectedOpportunities(
   return getDb()
     .prepare<OpportunityRow>(
       `
-      SELECT
-        id,
-        strategy,
-        slug,
-        raw_edge,
-        executable_edge,
-        fillable_usd,
-        min_leg_depth_usd,
-        leg_count,
-        executable_sum,
-        fee_adjusted_edge,
-        basket_size_shares,
-        basket_cost_usd,
-        basket_payout_usd,
-        basket_profit_usd,
-        edge_bps,
-        roi_bps,
-        max_positive_basket_shares,
-        max_positive_basket_cost_usd,
-        expected_resolution_at,
-        duration_hours,
-        capital_lock_class,
-        status,
-        reason,
-        token_ids,
-        timestamp
+      SELECT ${SELECT_COLUMNS}
       FROM opportunities
       WHERE status = 'rejected'
       ORDER BY timestamp DESC
@@ -378,7 +460,102 @@ export function listRecentRejectedOpportunities(
     .map(mapOpportunityRow);
 }
 
-export function countOpportunitiesByStatus(): Record<OpportunityStatus, number> {
+export function getOpportunityById(id: string): OpportunityRecord | null {
+  const row = getDb()
+    .prepare<OpportunityRow>(`SELECT ${SELECT_COLUMNS} FROM opportunities WHERE id = ?`)
+    .get(id);
+
+  return row ? mapOpportunityRow(row) : null;
+}
+
+/**
+ * Newest row per opportunity key inside a window, plus when that key was first
+ * and last seen inside the window. The publisher reads this: one line per
+ * distinct basket, not one per cycle.
+ */
+export type OpportunityWindowRow = OpportunityRecord & {
+  firstSeenAt: number;
+  lastSeenAt: number;
+  sightings: number;
+};
+
+export function listLatestOpportunitiesByKey(
+  sinceMs: number,
+  limit: number
+): OpportunityWindowRow[] {
+  type Row = OpportunityRow & {
+    first_seen_at: number;
+    last_seen_at: number;
+    sightings: number;
+  };
+
+  return getDb()
+    .prepare<Row>(
+      `
+      WITH windowed AS (
+        SELECT
+          o.*,
+          MIN(o.timestamp) OVER (PARTITION BY o.opportunity_key) AS first_seen_at,
+          MAX(o.timestamp) OVER (PARTITION BY o.opportunity_key) AS last_seen_at,
+          COUNT(*) OVER (PARTITION BY o.opportunity_key) AS sightings,
+          ROW_NUMBER() OVER (
+            PARTITION BY o.opportunity_key
+            ORDER BY o.timestamp DESC, o.id DESC
+          ) AS row_rank
+        FROM opportunities o
+        WHERE o.timestamp >= ? AND o.opportunity_key IS NOT NULL
+      )
+      SELECT ${SELECT_COLUMNS}, first_seen_at, last_seen_at, sightings
+      FROM windowed
+      WHERE row_rank = 1
+      ORDER BY last_seen_at DESC
+      LIMIT ?
+      `
+    )
+    .all(sinceMs, limit)
+    .map((row) => ({
+      ...mapOpportunityRow(row),
+      firstSeenAt: row.first_seen_at,
+      lastSeenAt: row.last_seen_at,
+      sightings: row.sightings,
+    }));
+}
+
+export function countRejectionReasonsSince(
+  sinceMs: number,
+  strategy?: string
+): Array<{ reason: string; count: number }> {
+  type Row = { reason: string | null; count: number };
+  const rows = strategy
+    ? getDb()
+        .prepare<Row>(
+          `
+          SELECT reason, COUNT(*) AS count
+          FROM opportunities
+          WHERE status = 'rejected' AND timestamp >= ? AND strategy = ?
+          GROUP BY reason
+          ORDER BY count DESC, reason ASC
+          `
+        )
+        .all(sinceMs, strategy)
+    : getDb()
+        .prepare<Row>(
+          `
+          SELECT reason, COUNT(*) AS count
+          FROM opportunities
+          WHERE status = 'rejected' AND timestamp >= ?
+          GROUP BY reason
+          ORDER BY count DESC, reason ASC
+          `
+        )
+        .all(sinceMs);
+
+  return rows.map((row) => ({ reason: row.reason ?? "other", count: row.count }));
+}
+
+export function countOpportunitiesByStatusSince(
+  sinceMs: number
+): Record<OpportunityStatus, number> {
   const counts: Record<OpportunityStatus, number> = {
     raw_found: 0,
     validated: 0,
@@ -391,14 +568,19 @@ export function countOpportunitiesByStatus(): Record<OpportunityStatus, number> 
       `
       SELECT status, COUNT(*) AS count
       FROM opportunities
+      WHERE timestamp >= ?
       GROUP BY status
       `
     )
-    .all()) {
+    .all(sinceMs)) {
     counts[row.status] = row.count;
   }
 
   return counts;
+}
+
+export function countOpportunitiesByStatus(): Record<OpportunityStatus, number> {
+  return countOpportunitiesByStatusSince(0);
 }
 
 function mapOpportunityRow(row: OpportunityRow): OpportunityRecord {
@@ -424,14 +606,26 @@ function mapOpportunityRow(row: OpportunityRow): OpportunityRecord {
     expectedResolutionAt: row.expected_resolution_at,
     durationHours: row.duration_hours,
     capitalLockClass: row.capital_lock_class,
+    opportunityKey: row.opportunity_key,
+    title: row.title,
+    venues: parseStringArray(row.venues),
+    category: row.category,
+    grossEdgeBps: row.gross_edge_bps,
+    netEdgeBps: row.net_edge_bps,
+    feeUsd: row.fee_usd,
+    capitalUsd: row.capital_usd,
+    depthUsd: row.depth_usd,
+    daysToResolution: row.days_to_resolution,
+    annualizedPct: row.annualized_pct,
+    ruleMatch: row.rule_match,
     status: row.status,
     reason: row.reason,
-    tokenIds: parseTokenIds(row.token_ids),
+    tokenIds: parseStringArray(row.token_ids),
     timestamp: row.timestamp
   };
 }
 
-function parseTokenIds(value: string | null): string[] {
+function parseStringArray(value: string | null): string[] {
   if (!value) {
     return [];
   }
@@ -439,7 +633,7 @@ function parseTokenIds(value: string | null): string[] {
   try {
     const parsed: unknown = JSON.parse(value);
     return Array.isArray(parsed)
-      ? parsed.filter((tokenId): tokenId is string => typeof tokenId === "string")
+      ? parsed.filter((item): item is string => typeof item === "string")
       : [];
   } catch {
     return [];

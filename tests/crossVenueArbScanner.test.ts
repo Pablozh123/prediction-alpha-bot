@@ -69,6 +69,130 @@ describe("cross venue arb scanner", () => {
     ]);
   });
 
+  it("prices every level with the venue fee curves when no flat fee is configured", () => {
+    const [opportunity] = calculateCrossVenueArbs(
+      makePair(),
+      [
+        {
+          venue: "kalshi",
+          identifier: "KXTEST-YES",
+          yesAskLevels: [{ price: 0.42, size: 10 }],
+          noAskLevels: [{ price: 0.66, size: 10 }],
+          bestYesAsk: 0.42,
+          bestNoAsk: 0.66,
+        },
+        {
+          venue: "polymarket",
+          identifier: "poly-market",
+          yesAskLevels: [{ price: 0.56, size: 10 }],
+          noAskLevels: [{ price: 0.5, size: 5 }],
+          bestYesAsk: 0.56,
+          bestNoAsk: 0.5,
+        },
+      ],
+      {
+        // zero flat fees are the legacy configuration and are not honoured
+        feesCents: { kalshi: 0, polymarket: 0 },
+        minNetCents: 1,
+        nowMs: Date.UTC(2026, 5, 20),
+      },
+    );
+
+    expect(opportunity).toMatchObject({
+      feeModel: "curve",
+      feeModelVersion: "2026-07-30",
+      roleMode: "taker",
+      grossCents: 8,
+      // Kalshi taker 0.07 * 0.42 * 0.58 = 1.71c; Polymarket finance 0.04 * 0.25 = 1.00c
+      feeCents: 2.71,
+      netCents: 5.29,
+      executableSize: 5,
+      // 5 shares: Kalshi 0.0853 -> 0.09 after cent rounding, Polymarket 0.05
+      maxProfitDollars: 0.26,
+      capitalUsd: 4.6,
+      executableNetEdgeBps: 565.22,
+      daysToResolution: 10,
+      annualizedPct: 206.3,
+      ruleMatch: "unverified",
+    });
+    expect(opportunity?.yesLeg).toMatchObject({ role: "taker", feeUsd: 0.09, sizeUsd: 2.1 });
+    expect(opportunity?.noLeg).toMatchObject({ role: "taker", feeUsd: 0.05, sizeUsd: 2.5 });
+  });
+
+  it("rests the pricier leg as maker when maker-first is configured", () => {
+    const [opportunity] = calculateCrossVenueArbs(
+      makePair(),
+      [
+        {
+          venue: "kalshi",
+          identifier: "KXTEST-YES",
+          yesAskLevels: [{ price: 0.42, size: 10 }],
+          noAskLevels: [{ price: 0.66, size: 10 }],
+          bestYesAsk: 0.42,
+          bestNoAsk: 0.66,
+        },
+        {
+          venue: "polymarket",
+          identifier: "poly-market",
+          yesAskLevels: [{ price: 0.56, size: 10 }],
+          noAskLevels: [{ price: 0.5, size: 5 }],
+          bestYesAsk: 0.56,
+          bestNoAsk: 0.5,
+        },
+      ],
+      { minNetCents: 1, roleMode: "maker_first" },
+    );
+
+    expect(opportunity?.roleMode).toBe("maker_first");
+    expect(opportunity?.yesLeg.role).toBe("maker");
+    expect(opportunity?.noLeg.role).toBe("taker");
+    // Kalshi maker: 5 * 0.0175 * 0.2436 = 0.0213 -> 0.03 after cent rounding
+    expect(opportunity?.yesLeg.feeUsd).toBe(0.03);
+  });
+
+  it("reports why a scanned pair had no edge instead of dropping it", async () => {
+    const result = await scanCrossVenuePairs([makePair()], {
+      fetchKalshiBook: vi.fn(async () => makeKalshiBook()),
+      fetchPolymarketBook: vi.fn(async () =>
+        makePolymarketBook({ asks: [{ price: 0.6, size: 10 }] }),
+      ),
+      minNetCents: 0.5,
+    });
+
+    expect(result.opportunities).toEqual([]);
+    expect(result.noEdge).toEqual([
+      expect.objectContaining({
+        pairId: "pair-1",
+        reason: "non_positive_executable_edge",
+      }),
+    ]);
+  });
+
+  it("hard-excludes pairs whose titles ask different questions before reading any book", async () => {
+    const fetchKalshiBook = vi.fn(async () => makeKalshiBook());
+    const fetchPolymarketBook = vi.fn(async () => makePolymarketBook());
+    const pair = makePair();
+    pair.kalshi.title = "Michigan Democratic Senate primary margin of victory";
+    pair.polymarket.question =
+      "Will Abdul El-Sayed win the 2026 Michigan Democratic Senate primary?";
+
+    const result = await scanCrossVenuePairs([pair], {
+      fetchKalshiBook,
+      fetchPolymarketBook,
+      warn: vi.fn(),
+    });
+
+    expect(result.rejected).toEqual([
+      expect.objectContaining({
+        pairId: "pair-1",
+        reason: "question_type_mismatch",
+      }),
+    ]);
+    expect(result.opportunities).toEqual([]);
+    expect(fetchKalshiBook).not.toHaveBeenCalled();
+    expect(fetchPolymarketBook).not.toHaveBeenCalled();
+  });
+
   it("does not flag pure price spreads as risk-free arbs", () => {
     const books = [
       {

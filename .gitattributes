@@ -1,0 +1,3 @@
+# Windows batch files need CRLF for labels and goto to be reliable.
+scripts/*.cmd text eol=crlf
+scripts/*.ps1 text eol=crlf

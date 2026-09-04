@@ -1,8 +1,18 @@
 import "dotenv/config";
 import type { Server } from "node:http";
 import { pathToFileURL } from "node:url";
+import {
+  parseExecutionRoleMode,
+  type ExecutionRoleMode,
+} from "./core/venueFees.js";
 import { closeDb, initDb } from "./execution/db.js";
+import { resolveOpenPaperTradesBatch } from "./execution/paperResolution.js";
+import {
+  createArbScanPublisher,
+  type ArbScanPublisher,
+} from "./publisher/arbScanPublisher.js";
 import { scanClearWinWatchOpportunities } from "./scanner/clearWinWatchScanner.js";
+import { runCrossVenueCycle } from "./scanner/crossVenueCycle.js";
 import { runOrderBookSnapshotCycle } from "./scanner/orderbookSnapshotCycle.js";
 import { runScanCycle, type ScanCycleLogger } from "./scanner/runScanCycle.js";
 import { runDailyTelegramReport } from "./scripts/dailyTelegramReport.js";
@@ -36,9 +46,26 @@ const DEFAULT_CLEAN_BASKET_MIN_MAX_POSITIVE_COST_USD = 100;
 const DEFAULT_CLEAN_BASKET_MIN_LEG_DEPTH_USD = 100;
 const DEFAULT_CLEAN_BASKET_MAX_LEG_SPREAD_BPS = 250;
 const DEFAULT_MAX_SHORT_ARB_DURATION_HOURS = 72;
+const DEFAULT_PAPER_TARGET_SIZE_USD = 20;
+const DEFAULT_MIN_EXECUTABLE_DEPTH_USD = 5;
+const DEFAULT_ARB_PUBLISH_INTERVAL_MS = 300_000;
+const DEFAULT_PAPER_RESOLVE_INTERVAL_MS = 1_800_000;
+const DEFAULT_PAPER_RESOLVE_BATCH_LIMIT = 50;
+const DEFAULT_CROSS_VENUE_SCAN_INTERVAL_MS = 300_000;
+const DEFAULT_CROSS_VENUE_PAIRS_PATH = "config/crossVenuePairs.json";
+
+/**
+ * Pre-registered on 2026-09-04: the measurement window is 14 days from the
+ * day the scanner goes live; the success criterion is resolved paper trades
+ * that are linked to their candidate and show a positive net edge after venue
+ * fees. Nothing is claimed before the window closes.
+ */
+export const MEASUREMENT_NOTE =
+  "Pre-registered 2026-09-04: 14-day measurement window from go-live; criterion is resolved, candidate-linked paper trades with positive net edge after fees";
 
 type StartBotOptions = {
   argv?: string[];
+  crossVenueIntervalMs?: number;
   dbPath?: string;
   dailyReportIntervalMs?: number;
   env?: NodeJS.ProcessEnv;
@@ -47,33 +74,52 @@ type StartBotOptions = {
   logger?: ScanCycleLogger;
   metricsServer?: boolean;
   orderbookSnapshotIntervalMs?: number;
+  paperResolveIntervalMs?: number;
+  publisher?: ArbScanPublisher;
+  publishIntervalMs?: number;
   registerSignals?: boolean;
+  runCrossVenueCycle?: () => Promise<unknown>;
   runCycle?: () => Promise<unknown>;
   runDailyReport?: () => Promise<unknown>;
+  runInitialCrossVenue?: boolean;
+  runInitialPaperResolve?: boolean;
   runInitialScan?: boolean;
   runInitialSnapshot?: boolean;
+  runPaperResolve?: () => Promise<unknown>;
   runSnapshotCycle?: () => Promise<unknown>;
   sendAlert?: (message: string) => Promise<unknown>;
 };
 
 export type BotConfig = {
+  arbPublishDir: string | undefined;
+  arbPublishIntervalMs: number;
   cleanBasketFilterEnabled: boolean;
   cleanBasketMaxLegSpreadBps: number;
   cleanBasketMinEdgeBps: number;
   cleanBasketMinLegDepthUsd: number;
   cleanBasketMinMaxPositiveCostUsd: number;
   cleanBasketMinRoiBps: number;
+  crossVenueAutoDiscover: boolean;
+  crossVenueMinNetCents: number | undefined;
+  crossVenuePairsPath: string;
+  crossVenueScanEnabled: boolean;
+  crossVenueScanIntervalMs: number;
   databasePath?: string;
+  executionRoleMode: ExecutionRoleMode;
   fastScanEnabled: boolean;
   fastScanIntervalMs: number;
   maxShortArbDurationHours: number;
   maxScanCycles?: number;
+  minExecutableDepthUsd: number;
   orderbookSnapshotEnabled: boolean;
   orderbookSnapshotGammaEventLimit: number;
   orderbookSnapshotIntervalMs: number;
   orderbookSnapshotMaxTokensPerMarket: number;
   orderbookSnapshotTokenLimit: number;
   paperFireCooldownMs: number;
+  paperResolveEnabled: boolean;
+  paperResolveIntervalMs: number;
+  paperTargetSizeUsd: number;
   runOnce: boolean;
   scanIntervalMs: number;
   telegramAlertsEnabled: boolean;
@@ -85,9 +131,12 @@ export type BotConfig = {
 
 export type BotHandle = {
   done: Promise<void>;
+  crossVenueInterval?: ReturnType<typeof setInterval>;
   dailyReportInterval?: ReturnType<typeof setInterval>;
   interval?: ReturnType<typeof setInterval>;
   metricsServer?: Server;
+  paperResolveInterval?: ReturnType<typeof setInterval>;
+  publishInterval?: ReturnType<typeof setInterval>;
   snapshotInterval?: ReturnType<typeof setInterval>;
   stop(): void;
 };
@@ -115,6 +164,12 @@ export function loadBotConfig(
   assertPaperOnlyEnv(env);
 
   return {
+    arbPublishDir: env.ARB_PUBLISH_DIR?.trim() || undefined,
+    arbPublishIntervalMs: parsePositiveInteger(
+      env.ARB_PUBLISH_INTERVAL_MS,
+      DEFAULT_ARB_PUBLISH_INTERVAL_MS,
+      "ARB_PUBLISH_INTERVAL_MS",
+    ),
     cleanBasketFilterEnabled: parseBoolean(
       env.CLEAN_BASKET_FILTER_ENABLED,
       true,
@@ -144,7 +199,21 @@ export function loadBotConfig(
       DEFAULT_CLEAN_BASKET_MIN_ROI_BPS,
       "CLEAN_BASKET_MIN_ROI_BPS",
     ),
+    crossVenueAutoDiscover: parseBoolean(env.CROSS_VENUE_AUTO_DISCOVER, true),
+    crossVenueMinNetCents: parseOptionalNonNegativeNumber(
+      env.CROSS_VENUE_MIN_NET_CENTS,
+      "CROSS_VENUE_MIN_NET_CENTS",
+    ),
+    crossVenuePairsPath:
+      env.CROSS_VENUE_PAIRS_PATH?.trim() || DEFAULT_CROSS_VENUE_PAIRS_PATH,
+    crossVenueScanEnabled: parseBoolean(env.CROSS_VENUE_SCAN_ENABLED, true),
+    crossVenueScanIntervalMs: parsePositiveInteger(
+      env.CROSS_VENUE_SCAN_INTERVAL_MS,
+      DEFAULT_CROSS_VENUE_SCAN_INTERVAL_MS,
+      "CROSS_VENUE_SCAN_INTERVAL_MS",
+    ),
     databasePath: env.DATABASE_PATH?.trim() || undefined,
+    executionRoleMode: parseExecutionRoleMode(env.EXECUTION_ROLE_MODE, "taker"),
     fastScanEnabled: parseBoolean(env.FAST_SCAN_ENABLED, true),
     fastScanIntervalMs: parsePositiveInteger(
       env.FAST_SCAN_INTERVAL_MS,
@@ -159,6 +228,11 @@ export function loadBotConfig(
     maxScanCycles: parseOptionalPositiveInteger(
       env.MAX_SCAN_CYCLES,
       "MAX_SCAN_CYCLES",
+    ),
+    minExecutableDepthUsd: parseNonNegativeNumber(
+      env.MIN_EXECUTABLE_DEPTH_USD,
+      DEFAULT_MIN_EXECUTABLE_DEPTH_USD,
+      "MIN_EXECUTABLE_DEPTH_USD",
     ),
     orderbookSnapshotEnabled: parseBoolean(
       env.ORDERBOOK_SNAPSHOT_ENABLED,
@@ -188,6 +262,17 @@ export function loadBotConfig(
       env.PAPER_FIRE_COOLDOWN_MS,
       DEFAULT_PAPER_FIRE_COOLDOWN_MS,
       "PAPER_FIRE_COOLDOWN_MS",
+    ),
+    paperResolveEnabled: parseBoolean(env.PAPER_RESOLVE_ENABLED, true),
+    paperResolveIntervalMs: parsePositiveInteger(
+      env.PAPER_RESOLVE_INTERVAL_MS,
+      DEFAULT_PAPER_RESOLVE_INTERVAL_MS,
+      "PAPER_RESOLVE_INTERVAL_MS",
+    ),
+    paperTargetSizeUsd: parsePositiveNumber(
+      env.PAPER_TARGET_SIZE_USD,
+      DEFAULT_PAPER_TARGET_SIZE_USD,
+      "PAPER_TARGET_SIZE_USD",
     ),
     runOnce: argv.includes("--once") || parseBoolean(env.RUN_ONCE, false),
     scanIntervalMs: parsePositiveInteger(
@@ -239,6 +324,12 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
     options.orderbookSnapshotIntervalMs ?? config.orderbookSnapshotIntervalMs;
   const dailyReportIntervalMs =
     options.dailyReportIntervalMs ?? config.telegramDailyReportIntervalMs;
+  const crossVenueIntervalMs =
+    options.crossVenueIntervalMs ?? config.crossVenueScanIntervalMs;
+  const paperResolveIntervalMs =
+    options.paperResolveIntervalMs ?? config.paperResolveIntervalMs;
+  const publishIntervalMs =
+    options.publishIntervalMs ?? config.arbPublishIntervalMs;
   const maxScanCycles = config.runOnce ? 1 : config.maxScanCycles;
   const exit = options.exit ?? process.exit;
   const telegramConfig = loadTelegramAlertConfig(options.env);
@@ -284,7 +375,10 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
             config.cleanBasketMinMaxPositiveCostUsd,
           minRoiBps: config.cleanBasketMinRoiBps,
         },
+        minExecutableDepthUsd: config.minExecutableDepthUsd,
         paperFireCooldownMs: config.paperFireCooldownMs,
+        paperSizeUsd: config.paperTargetSizeUsd,
+        roleMode: config.executionRoleMode,
         sendAlert: telegramConfig.enabled ? sendAlert : undefined,
       }));
   const runDailyReport =
@@ -295,9 +389,49 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
         sendAlert,
         windowHours: config.telegramDailyReportWindowHours,
       }));
+  const runCrossVenue =
+    options.runCrossVenueCycle ??
+    (() =>
+      runCrossVenueCycle({
+        autoDiscover: config.crossVenueAutoDiscover,
+        logger,
+        minNetCents: config.crossVenueMinNetCents,
+        pairsPath: config.crossVenuePairsPath,
+        roleMode: config.executionRoleMode,
+      }));
+  const runPaperResolve =
+    options.runPaperResolve ??
+    (async () => {
+      const result = await resolveOpenPaperTradesBatch({
+        limit: DEFAULT_PAPER_RESOLVE_BATCH_LIMIT,
+      });
+
+      logger.info(
+        formatStructuredLog("info", "paper_resolution_batch", {
+          checkedSlugs: result.checkedSlugs,
+          resolvedCount: result.resolvedCount,
+          unresolvedCount: result.unresolvedCount,
+          flaggedCount: result.flaggedCount,
+          skippedNoSlugCount: result.skippedNoSlugCount,
+        }),
+      );
+
+      return result;
+    });
 
   initDb(options.dbPath ?? config.databasePath);
   logger.info("bot starting in PAPER_ONLY mode");
+  logger.info(
+    formatStructuredLog("info", "scanner_config", {
+      crossVenueScanEnabled: config.crossVenueScanEnabled,
+      executionRoleMode: config.executionRoleMode,
+      minExecutableDepthUsd: config.minExecutableDepthUsd,
+      paperResolveEnabled: config.paperResolveEnabled,
+      paperTargetSizeUsd: config.paperTargetSizeUsd,
+      publishEnabled: Boolean(config.arbPublishDir),
+      scanIntervalMs: intervalMs,
+    }),
+  );
   notify(
     formatTelegramAlert("Paper bot started", {
       orderbookSnapshots: config.orderbookSnapshotEnabled,
@@ -309,14 +443,27 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
   );
   const metricsServer =
     options.metricsServer === false ? undefined : startHealthServer({ logger });
+  const publisher =
+    options.publisher ??
+    createArbScanPublisher({
+      dir: config.arbPublishDir,
+      logger,
+      sampleNote: MEASUREMENT_NOTE,
+      scanIntervalMs: intervalMs,
+    });
 
   let completedCycles = 0;
   let interval: ReturnType<typeof setInterval> | undefined;
   let snapshotInterval: ReturnType<typeof setInterval> | undefined;
   let dailyReportInterval: ReturnType<typeof setInterval> | undefined;
+  let crossVenueInterval: ReturnType<typeof setInterval> | undefined;
+  let paperResolveInterval: ReturnType<typeof setInterval> | undefined;
+  let publishInterval: ReturnType<typeof setInterval> | undefined;
   let cycleInFlight = false;
   let snapshotInFlight = false;
   let dailyReportInFlight = false;
+  let crossVenueInFlight = false;
+  let paperResolveInFlight = false;
   let stopped = false;
   let resolveDone: () => void = () => undefined;
 
@@ -331,16 +478,17 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
 
     stopped = true;
 
-    if (interval) {
-      clearInterval(interval);
-    }
-
-    if (snapshotInterval) {
-      clearInterval(snapshotInterval);
-    }
-
-    if (dailyReportInterval) {
-      clearInterval(dailyReportInterval);
+    for (const timer of [
+      interval,
+      snapshotInterval,
+      dailyReportInterval,
+      crossVenueInterval,
+      paperResolveInterval,
+      publishInterval,
+    ]) {
+      if (timer) {
+        clearInterval(timer);
+      }
     }
 
     void closeHealthServer(metricsServer);
@@ -358,6 +506,50 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
     }
   };
 
+  const publishSafely = (reason: string): void => {
+    if (stopped || !publisher.enabled) {
+      return;
+    }
+
+    try {
+      publisher.publish(reason);
+    } catch (error) {
+      incrementErrors();
+      logger.error(
+        formatStructuredError("arb_scan_publish_unhandled_error", error, {
+          component: "publisher",
+        }),
+      );
+    }
+  };
+
+  const runCrossVenueSafely = (): Promise<void> => {
+    if (crossVenueInFlight) {
+      logger.warn(
+        formatStructuredLog("warn", "cross_venue_cycle_skipped", {
+          reason: "previous_cross_venue_cycle_still_running",
+        }),
+      );
+      return Promise.resolve();
+    }
+
+    crossVenueInFlight = true;
+
+    return runCrossVenue()
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        incrementErrors();
+        logger.error(
+          formatStructuredError("cross_venue_cycle_unhandled_error", error, {
+            component: "main_loop",
+          }),
+        );
+      })
+      .finally(() => {
+        crossVenueInFlight = false;
+      });
+  };
+
   const runCycleSafely = (): void => {
     if (cycleInFlight) {
       incrementScanOverlapSkips();
@@ -371,7 +563,19 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
 
     cycleInFlight = true;
 
-    void runCycle()
+    const cycle = config.runOnce && config.crossVenueScanEnabled
+      ? runCycle().then((result) => runCrossVenueSafely().then(() => result))
+      : runCycle();
+
+    void cycle
+      .then((result) => {
+        logger.info(
+          formatStructuredLog("info", "heartbeat", {
+            cycle: completedCycles + 1,
+            result: summarizeCycleResult(result),
+          }),
+        );
+      })
       .catch((error: unknown) => {
         incrementErrors();
         logger.error(
@@ -390,6 +594,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
       .finally(() => {
         cycleInFlight = false;
         completedCycles += 1;
+        publishSafely("after_cycle");
 
         if (maxScanCycles !== undefined && completedCycles >= maxScanCycles) {
           stop(true);
@@ -463,12 +668,64 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
       });
   };
 
+  const runPaperResolveSafely = (): void => {
+    if (paperResolveInFlight) {
+      logger.warn(
+        formatStructuredLog("warn", "paper_resolution_skipped", {
+          reason: "previous_paper_resolution_still_running",
+        }),
+      );
+      return;
+    }
+
+    paperResolveInFlight = true;
+
+    void runPaperResolve()
+      .catch((error: unknown) => {
+        incrementErrors();
+        logger.error(
+          formatStructuredError("paper_resolution_failed", error, {
+            component: "main_loop",
+          }),
+        );
+      })
+      .finally(() => {
+        paperResolveInFlight = false;
+      });
+  };
+
   if (config.runOnce || options.runInitialScan !== false) {
     runCycleSafely();
   }
 
   if (!config.runOnce) {
     interval = setInterval(runCycleSafely, intervalMs);
+
+    if (publisher.enabled) {
+      publishInterval = setInterval(() => publishSafely("interval"), publishIntervalMs);
+    }
+
+    if (config.crossVenueScanEnabled) {
+      logger.info("cross-venue scan lane enabled");
+
+      if (options.runInitialCrossVenue !== false) {
+        void runCrossVenueSafely();
+      }
+
+      crossVenueInterval = setInterval(() => {
+        void runCrossVenueSafely();
+      }, crossVenueIntervalMs);
+    }
+
+    if (config.paperResolveEnabled) {
+      logger.info("paper resolution loop enabled");
+
+      if (options.runInitialPaperResolve !== false) {
+        runPaperResolveSafely();
+      }
+
+      paperResolveInterval = setInterval(runPaperResolveSafely, paperResolveIntervalMs);
+    }
   }
 
   if (config.orderbookSnapshotEnabled) {
@@ -504,12 +761,39 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
 
   return {
     done,
+    crossVenueInterval,
     dailyReportInterval,
     interval,
     metricsServer,
+    paperResolveInterval,
+    publishInterval,
     snapshotInterval,
     stop: () => stop(false),
   };
+}
+
+function summarizeCycleResult(result: unknown): Record<string, unknown> | null {
+  if (typeof result !== "object" || result === null) {
+    return null;
+  }
+
+  const record = result as Record<string, unknown>;
+  const summary: Record<string, unknown> = {};
+
+  for (const key of [
+    "success",
+    "opportunities",
+    "paperTrades",
+    "skippedDuplicates",
+    "rejectedOpportunities",
+    "rejectionsByReason",
+  ]) {
+    if (key in record) {
+      summary[key] = record[key];
+    }
+  }
+
+  return summary;
 }
 
 function registerShutdownHandlers(
@@ -559,6 +843,53 @@ function parsePositiveInteger(
   }
 
   return parsed;
+}
+
+function parsePositiveNumber(
+  value: string | undefined,
+  fallback: number,
+  name: string,
+): number {
+  if (value === undefined || value.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive number.`);
+  }
+
+  return parsed;
+}
+
+function parseNonNegativeNumber(
+  value: string | undefined,
+  fallback: number,
+  name: string,
+): number {
+  if (value === undefined || value.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a non-negative number.`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalNonNegativeNumber(
+  value: string | undefined,
+  name: string,
+): number | undefined {
+  if (value === undefined || value.trim() === "") {
+    return undefined;
+  }
+
+  return parseNonNegativeNumber(value, 0, name);
 }
 
 function parseOptionalPositiveInteger(

@@ -92,6 +92,7 @@ type PaperTradeRow = {
   inflation_flagged: number;
   resolution_reason: string | null;
   arb_class: string | null;
+  link_status: PaperTrade["linkStatus"];
   timestamp: number;
   resolved_at: number | null;
 };
@@ -402,6 +403,7 @@ function listUnresolvedPaperTradesForSlug(slug: string): PaperTrade[] {
         inflation_flagged,
         resolution_reason,
         arb_class,
+        link_status,
         timestamp,
         resolved_at
       FROM paper_trades
@@ -712,6 +714,7 @@ function mapPaperTradeRow(row: PaperTradeRow): PaperTrade {
     inflationFlagged: row.inflation_flagged === 1,
     resolutionReason: row.resolution_reason,
     arbClass: row.arb_class,
+    linkStatus: row.link_status,
     timestamp: row.timestamp,
     resolvedAt: row.resolved_at
   };
