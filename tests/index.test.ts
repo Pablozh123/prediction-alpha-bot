@@ -37,7 +37,7 @@ describe("startup", () => {
 
     const handle = startBot({
       dbPath: testDbPath,
-      env: { PAPER_ONLY: "true" },
+      env: { PAPER_ONLY: "true", CROSS_VENUE_SCAN_ENABLED: "false", PAPER_RESOLVE_ENABLED: "false" },
       intervalMs: 30_000,
       logger,
       metricsServer: false,
@@ -58,23 +58,35 @@ describe("startup", () => {
 
   it("loads dry-run config defaults", () => {
     expect(loadBotConfig({ PAPER_ONLY: "true" }, [])).toEqual({
+      arbPublishDir: undefined,
+      arbPublishIntervalMs: 300_000,
       cleanBasketFilterEnabled: true,
       cleanBasketMaxLegSpreadBps: 250,
       cleanBasketMinEdgeBps: 100,
       cleanBasketMinLegDepthUsd: 100,
       cleanBasketMinMaxPositiveCostUsd: 100,
       cleanBasketMinRoiBps: 100,
+      crossVenueAutoDiscover: true,
+      crossVenueMinNetCents: undefined,
+      crossVenuePairsPath: "config/crossVenuePairs.json",
+      crossVenueScanEnabled: true,
+      crossVenueScanIntervalMs: 300_000,
       databasePath: undefined,
+      executionRoleMode: "taker",
       fastScanEnabled: true,
       fastScanIntervalMs: 10_000,
       maxShortArbDurationHours: 72,
       maxScanCycles: undefined,
+      minExecutableDepthUsd: 5,
       orderbookSnapshotEnabled: false,
       orderbookSnapshotGammaEventLimit: 400,
       orderbookSnapshotIntervalMs: 300_000,
       orderbookSnapshotMaxTokensPerMarket: 16,
       orderbookSnapshotTokenLimit: 160,
       paperFireCooldownMs: 21_600_000,
+      paperResolveEnabled: true,
+      paperResolveIntervalMs: 1_800_000,
+      paperTargetSizeUsd: 20,
       runOnce: false,
       scanIntervalMs: 30_000,
       telegramAlertsEnabled: false,
@@ -100,6 +112,8 @@ describe("startup", () => {
       env: {
         PAPER_ONLY: "true",
         RUN_ONCE: "true",
+        CROSS_VENUE_SCAN_ENABLED: "false",
+        PAPER_RESOLVE_ENABLED: "false",
         TELEGRAM_ALERTS_ENABLED: "true",
         TELEGRAM_BOT_TOKEN: "test-token",
         TELEGRAM_CHAT_ID: "test-chat",
@@ -142,6 +156,8 @@ describe("startup", () => {
         ORDERBOOK_SNAPSHOT_ENABLED: "true",
         ORDERBOOK_SNAPSHOT_INTERVAL_MS: "100",
         PAPER_ONLY: "true",
+        CROSS_VENUE_SCAN_ENABLED: "false",
+        PAPER_RESOLVE_ENABLED: "false",
       },
       intervalMs: 30_000,
       logger,
@@ -180,6 +196,8 @@ describe("startup", () => {
       dbPath: testDbPath,
       env: {
         PAPER_ONLY: "true",
+        CROSS_VENUE_SCAN_ENABLED: "false",
+        PAPER_RESOLVE_ENABLED: "false",
         TELEGRAM_ALERTS_ENABLED: "true",
         TELEGRAM_BOT_TOKEN: "test-token",
         TELEGRAM_CHAT_ID: "test-chat",
@@ -215,7 +233,7 @@ describe("startup", () => {
 
     const handle = startBot({
       dbPath: testDbPath,
-      env: { PAPER_ONLY: "true", RUN_ONCE: "true" },
+      env: { PAPER_ONLY: "true", RUN_ONCE: "true", CROSS_VENUE_SCAN_ENABLED: "false", PAPER_RESOLVE_ENABLED: "false" },
       exit,
       logger,
       metricsServer: false,
@@ -249,7 +267,7 @@ describe("startup", () => {
 
     const handle = startBot({
       dbPath: testDbPath,
-      env: { PAPER_ONLY: "true" },
+      env: { PAPER_ONLY: "true", CROSS_VENUE_SCAN_ENABLED: "false", PAPER_RESOLVE_ENABLED: "false" },
       intervalMs: 100,
       logger,
       metricsServer: false,
@@ -271,5 +289,122 @@ describe("startup", () => {
     await vi.advanceTimersByTimeAsync(0);
     handle.stop();
     await handle.done;
+  });
+
+  it("publishes the feed after every cycle and on the publish interval", async () => {
+    vi.useFakeTimers();
+
+    const publish = vi.fn(() => ({ written: true as const, path: "arb_scan.json", bytes: 1 }));
+    const publisher = { publish, lastPublishedAt: null, enabled: true };
+    const runCycle = vi.fn().mockResolvedValue({ success: true, opportunities: 0 });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    const handle = startBot({
+      dbPath: testDbPath,
+      env: { PAPER_ONLY: "true", CROSS_VENUE_SCAN_ENABLED: "false", PAPER_RESOLVE_ENABLED: "false" },
+      intervalMs: 1_000,
+      logger,
+      metricsServer: false,
+      publisher,
+      publishIntervalMs: 5_000,
+      registerSignals: false,
+      runCycle,
+      runInitialScan: false,
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(runCycle).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith("after_cycle");
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('"event":"heartbeat"'));
+
+    await vi.advanceTimersByTimeAsync(4_000);
+
+    expect(publish).toHaveBeenCalledWith("interval");
+    handle.stop();
+    await handle.done;
+  });
+
+  it("does not schedule a publish interval when no publish directory is set", async () => {
+    vi.useFakeTimers();
+
+    const publish = vi.fn(() => ({ written: false as const, reason: "publish_dir_unset" }));
+    const handle = startBot({
+      dbPath: testDbPath,
+      env: { PAPER_ONLY: "true", CROSS_VENUE_SCAN_ENABLED: "false", PAPER_RESOLVE_ENABLED: "false" },
+      intervalMs: 1_000,
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      metricsServer: false,
+      publisher: { publish, lastPublishedAt: null, enabled: false },
+      registerSignals: false,
+      runCycle: vi.fn().mockResolvedValue(undefined),
+      runInitialScan: false,
+    });
+
+    expect(handle.publishInterval).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(publish).not.toHaveBeenCalled();
+    handle.stop();
+    await handle.done;
+  });
+
+  it("runs the cross-venue lane and paper resolution on their own intervals", async () => {
+    vi.useFakeTimers();
+
+    const runCrossVenueCycle = vi.fn().mockResolvedValue({ success: true });
+    const runPaperResolve = vi.fn().mockResolvedValue({ resolvedCount: 0 });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    const handle = startBot({
+      crossVenueIntervalMs: 200,
+      dbPath: testDbPath,
+      env: { PAPER_ONLY: "true" },
+      intervalMs: 10_000,
+      logger,
+      metricsServer: false,
+      paperResolveIntervalMs: 300,
+      publisher: { publish: vi.fn(), lastPublishedAt: null, enabled: false },
+      registerSignals: false,
+      runCrossVenueCycle,
+      runCycle: vi.fn().mockResolvedValue(undefined),
+      runInitialScan: false,
+      runPaperResolve,
+    });
+
+    expect(logger.info).toHaveBeenCalledWith("cross-venue scan lane enabled");
+    expect(logger.info).toHaveBeenCalledWith("paper resolution loop enabled");
+    expect(runCrossVenueCycle).toHaveBeenCalledTimes(1);
+    expect(runPaperResolve).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(runCrossVenueCycle).toHaveBeenCalledTimes(2);
+    expect(runPaperResolve).toHaveBeenCalledTimes(2);
+    handle.stop();
+    await handle.done;
+  });
+
+  it("runs the cross-venue lane once inside a RUN_ONCE cycle before exiting", async () => {
+    const runCrossVenueCycle = vi.fn().mockResolvedValue({ success: true });
+    const exit = vi.fn();
+    const publish = vi.fn(() => ({ written: true as const, path: "arb_scan.json", bytes: 1 }));
+
+    const handle = startBot({
+      dbPath: testDbPath,
+      env: { PAPER_ONLY: "true", RUN_ONCE: "true", PAPER_RESOLVE_ENABLED: "false" },
+      exit,
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      metricsServer: false,
+      publisher: { publish, lastPublishedAt: null, enabled: true },
+      registerSignals: false,
+      runCrossVenueCycle,
+      runCycle: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await handle.done;
+
+    expect(runCrossVenueCycle).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith("after_cycle");
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });

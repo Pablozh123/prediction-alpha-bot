@@ -1,9 +1,6 @@
 {
+  "_comment": "Fees are priced with the venue curves (schedule 2026-07-30, see docs/CROSS_VENUE_ARB.md). Add feesCents {kalshi, polymarket} in cents per share only to force a flat model; zero is ignored. kalshi.title and polymarket.question enable the question-type check.",
   "minNetCents": 0.5,
-  "feesCents": {
-    "kalshi": 0,
-    "polymarket": 0
-  },
   "pairs": [
     {
       "id": "example-fed-cut-25bps",
@@ -11,10 +8,12 @@
       "outcomeLabel": "25bps cut",
       "expectedResolutionAt": "2026-03-19T18:00:00Z",
       "kalshi": {
-        "ticker": "KXFEDDECISION-26MAR-C25"
+        "ticker": "KXFEDDECISION-26MAR-C25",
+        "title": "Example Fed decision: 25bps cut"
       },
       "polymarket": {
         "slug": "example-fed-rate-march",
+        "question": "Will the Fed cut rates by 25bps in March?",
         "yesTokenId": "replace-with-polymarket-yes-token-id",
         "noTokenId": "replace-with-polymarket-no-token-id"
       }
