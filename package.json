@@ -30,6 +30,7 @@
     "oddpool:reference": "tsx src/scripts/oddpoolReference.ts",
     "paper:resolve": "tsx src/execution/paperResolution.ts",
     "paper:resolve:batch": "tsx src/execution/paperResolution.ts --batch",
+    "paper:backfill-links": "tsx src/scripts/backfillPaperTradeLinks.ts",
     "strategy:evaluate": "tsx src/scripts/strategyEvaluation.ts",
     "coverage:report": "tsx src/scripts/coverageReport.ts",
     "forward:clean:start": "tsx src/scripts/cleanForwardRun.ts start",

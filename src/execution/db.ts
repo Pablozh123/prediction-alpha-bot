@@ -143,9 +143,6 @@ CREATE TABLE IF NOT EXISTS opportunities (
 CREATE INDEX IF NOT EXISTS idx_opportunities_status_timestamp
 ON opportunities(status, timestamp);
 
-CREATE INDEX IF NOT EXISTS idx_opportunities_key_timestamp
-ON opportunities(opportunity_key, timestamp);
-
 CREATE TABLE IF NOT EXISTS opportunity_legs (
   id TEXT PRIMARY KEY,
   opportunity_id TEXT NOT NULL,
@@ -357,6 +354,8 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("opportunities", "days_to_resolution", "REAL");
   ensureColumn("opportunities", "annualized_pct", "REAL");
   ensureColumn("opportunities", "rule_match", "TEXT");
+  // Created here, not in the base schema: on a database from before
+  // 2026-09-04 the column only exists once ensureColumn has added it.
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_opportunities_key_timestamp ON opportunities(opportunity_key, timestamp)",
   );

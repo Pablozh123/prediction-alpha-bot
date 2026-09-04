@@ -47,6 +47,56 @@ describe("trade journal", () => {
     ]);
   });
 
+  it("migrates a database written before the 2026-09 columns existed", () => {
+    // Build the pre-2026-09 shape by hand: no link_status, no opportunity_key,
+    // no economics columns, no leg venue/role/fee columns.
+    const legacy = initDb(testDbPath);
+    legacy.exec("DROP INDEX IF EXISTS idx_opportunities_key_timestamp");
+    legacy.exec("DROP TABLE opportunities");
+    legacy.exec("DROP TABLE opportunity_legs");
+    legacy.exec("DROP TABLE paper_trades");
+    legacy.exec(`
+      CREATE TABLE paper_trades (
+        id TEXT PRIMARY KEY, strategy TEXT NOT NULL, slug TEXT, question TEXT,
+        token_id TEXT, opportunity_id TEXT, side TEXT NOT NULL, size_usd REAL NOT NULL,
+        size_shares REAL, entry_price REAL NOT NULL, exit_price REAL,
+        resolved INTEGER DEFAULT 0, pnl REAL, inflation_flagged INTEGER DEFAULT 0,
+        resolution_reason TEXT, arb_class TEXT, timestamp INTEGER NOT NULL, resolved_at INTEGER
+      );
+      CREATE TABLE opportunities (
+        id TEXT PRIMARY KEY, strategy TEXT NOT NULL, slug TEXT, raw_edge REAL,
+        executable_edge REAL, status TEXT NOT NULL, reason TEXT, token_ids TEXT,
+        timestamp INTEGER NOT NULL
+      );
+      CREATE TABLE opportunity_legs (
+        id TEXT PRIMARY KEY, opportunity_id TEXT NOT NULL, strategy TEXT NOT NULL,
+        slug TEXT, market_id TEXT, question TEXT, token_id TEXT NOT NULL, side TEXT NOT NULL,
+        raw_yes_price REAL, average_fill_price REAL, max_fillable_usd REAL, best_bid REAL,
+        best_ask REAL, spread REAL, fillable INTEGER NOT NULL DEFAULT 0, reason TEXT,
+        leg_index INTEGER NOT NULL, timestamp INTEGER NOT NULL
+      );
+      INSERT INTO paper_trades (id, strategy, side, size_usd, entry_price, timestamp)
+      VALUES ('legacy-1', 'neg_risk_bracket_arb', 'NO', 1, 0.4, 1);
+    `);
+    closeDb();
+
+    const db = initDb(testDbPath);
+    const columns = (table: string) =>
+      db
+        .prepare<{ name: string }>(`PRAGMA table_info(${table})`)
+        .all()
+        .map((column) => column.name);
+
+    expect(columns("paper_trades")).toContain("link_status");
+    expect(columns("opportunities")).toEqual(
+      expect.arrayContaining(["opportunity_key", "net_edge_bps", "annualized_pct", "rule_match"]),
+    );
+    expect(columns("opportunity_legs")).toEqual(
+      expect.arrayContaining(["venue", "role", "fee_usd"]),
+    );
+    expect(listRecentPaperTrades(10)[0]).toMatchObject({ id: "legacy-1", linkStatus: null });
+  });
+
   it("stores a paper trade", () => {
     initDb(testDbPath);
 
