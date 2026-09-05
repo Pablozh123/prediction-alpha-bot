@@ -715,13 +715,18 @@ export function stabilizeIds(snapshot: ArbScanSnapshot): ArbScanSnapshot {
   const tradeKey = (trade: ArbScanSnapshot["paper_positions"][number]): string =>
     [trade.opened_at, trade.strategy, trade.title, trade.capital_usd].join("|");
 
+  // Opportunities only the paper book refers to (older than the published
+  // lists) continue the numbering in the order the book's rows meet them.
+  let unpublished = 0;
+
   [...snapshot.paper_positions]
     .sort((left, right) => tradeKey(left).localeCompare(tradeKey(right)))
     .forEach((trade, index) => {
       mapping.set(trade.trade_id, `pt-${String(index + 1).padStart(4, "0")}`);
 
       if (trade.opportunity_id && !mapping.has(trade.opportunity_id)) {
-        mapping.set(trade.opportunity_id, `opp-${String(rows.size + index + 1).padStart(4, "0")}`);
+        unpublished += 1;
+        mapping.set(trade.opportunity_id, `opp-${String(rows.size + unpublished).padStart(4, "0")}`);
       }
     });
 
