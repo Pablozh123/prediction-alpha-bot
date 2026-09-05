@@ -405,9 +405,13 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
         autoDiscover: config.crossVenueAutoDiscover,
         hurdlePct: config.minAnnualizedNetPct,
         logger,
+        maxShortDurationHours: config.maxShortArbDurationHours,
         minNetCents: config.crossVenueMinNetCents,
         pairsPath: config.crossVenuePairsPath,
+        paperFireCooldownMs: config.paperFireCooldownMs,
+        paperSizeUsd: config.paperTargetSizeUsd,
         roleMode: config.executionRoleMode,
+        sendAlert: telegramConfig.enabled ? sendAlert : undefined,
       }));
   const runPaperResolve =
     options.runPaperResolve ??

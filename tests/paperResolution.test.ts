@@ -459,6 +459,42 @@ describe("paper resolution tracking", () => {
     expect(asked).toEqual(["a", "b", "c", "a"]);
   });
 
+  it("settles a Kalshi leg against Kalshi's market result, never against Gamma", async () => {
+    const get = vi.spyOn(axios, "get").mockResolvedValue({
+      data: { market: { ticker: "KXSETTLED", status: "settled", result: "no", close_time: "2026-08-01T00:00:00Z" } }
+    });
+
+    const resolution = await fetchMarketResolution("kalshi:KXSETTLED");
+
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(String(get.mock.calls[0]?.[0])).toBe(
+      "https://external-api.kalshi.com/trade-api/v2/markets/KXSETTLED"
+    );
+    expect(resolution).toMatchObject({
+      status: "resolved",
+      winningSide: "NO",
+      slug: "kalshi:KXSETTLED",
+      resolvedAt: Date.parse("2026-08-01T00:00:00Z"),
+      reason: "kalshi_result"
+    });
+    get.mockRestore();
+  });
+
+  it("keeps a Kalshi leg open until Kalshi states a binary result", async () => {
+    const get = vi.spyOn(axios, "get");
+    get.mockResolvedValueOnce({ data: { market: { ticker: "KXOPEN", status: "open", result: "" } } });
+    expect(await fetchMarketResolution("kalshi:KXOPEN")).toMatchObject({
+      status: "unresolved",
+      reason: "kalshi_market_not_settled"
+    });
+    get.mockResolvedValueOnce({ data: { market: { ticker: "KXVOID", status: "settled", result: "" } } });
+    expect(await fetchMarketResolution("kalshi:KXVOID")).toMatchObject({
+      status: "ambiguous",
+      reason: "kalshi_settled_without_binary_result"
+    });
+    get.mockRestore();
+  });
+
   it("contains no live order integration", () => {
     const source = readFileSync("src/execution/paperResolution.ts", "utf8");
 

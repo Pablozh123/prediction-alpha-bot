@@ -157,6 +157,13 @@ dollar a share to both sides. A market past its expected resolution time is
 rejected at gate 2 and never paper-fired, a closed market inside an active
 event is skipped, and `executeOrPaper` refuses a fill at zero.
 
+Cross-venue pairs paper-fire since decision E5 (2026-09-05: Kalshi is
+tradable for the operator), and only when a person reviewed the pair as
+equivalent and the capital lock is short; both legs go to the journal, the
+Kalshi leg under `kalshi:<ticker>` and settled against Kalshi's market result.
+Beyond the short window an equivalent pair is a carry candidate, and without
+the review nothing fires.
+
 ## Paper-only status
 
 The project does not support live trading. Every execution path routes through

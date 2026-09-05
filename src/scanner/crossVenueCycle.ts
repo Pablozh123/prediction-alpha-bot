@@ -19,11 +19,20 @@ import {
 } from "../execution/crossVenuePairJournal.js";
 import {
   recordOpportunity,
+  updateOpportunityStatus,
   type OpportunityStatus,
 } from "../execution/opportunityJournal.js";
+import { executeOrPaper, type ExecuteOrPaperInput } from "../execution/executeOrPaper.js";
+import {
+  buildPaperFireDedupeKey,
+  getRecentPaperFire,
+  recordPaperDedupeSkip,
+  recordPaperFire,
+} from "../execution/paperDedupe.js";
+import { kalshiPaperSlug } from "../utils/kalshi.js";
 import { recordOpportunityLegs } from "../execution/opportunityLegJournal.js";
 import { recordScannerRun } from "../execution/scannerRunJournal.js";
-import { classifyCapitalLock } from "../utils/marketTime.js";
+import { classifyCapitalLock, DEFAULT_MAX_SHORT_DURATION_HOURS } from "../utils/marketTime.js";
 import {
   CROSS_VENUE_ARB_STRATEGY,
   scanCrossVenuePairs,
@@ -40,7 +49,18 @@ import {
 } from "./crossVenueMatcher.js";
 import type { LiveOrderBookCache } from "./liveOrderbookCache.js";
 import { loadCrossVenueConfig } from "../scripts/crossVenueArbScan.js";
-import type { ScanCycleLogger } from "./runScanCycle.js";
+import { classifyHorizon, type ScanCycleLogger } from "./runScanCycle.js";
+
+/** Target capital per basket when the caller sets none (PAPER_TARGET_SIZE_USD). */
+const DEFAULT_CROSS_VENUE_PAPER_SIZE_USD = 20;
+/** The same basket does not fire twice inside this window. */
+const DEFAULT_CROSS_VENUE_PAPER_FIRE_COOLDOWN_MS = 60 * 60 * 1000;
+/** A reviewed pair that clears every gate but locks capital past the short window. */
+const CARRY_CANDIDATE_REASON = "carry_candidate";
+/** Dedupe threshold field for a YES plus NO basket: the dollar it sums below. */
+const CROSS_VENUE_DEDUPE_THRESHOLD = 1;
+
+type CrossVenuePaperLeg = Omit<ExecuteOrPaperInput, "opportunityId">;
 
 /**
  * The cross-venue lane as a loop step.
@@ -86,6 +106,13 @@ export type CrossVenueCycleOptions = {
   minNetCents?: number;
   /** Annualised net return in percent a pair must clear (decision E1). */
   hurdlePct?: number;
+  /** Capital each fired basket targets against the books (PAPER_TARGET_SIZE_USD). */
+  paperSizeUsd?: number;
+  /** The short window in hours; a reviewed pair inside it paper-fires (E5). */
+  maxShortDurationHours?: number;
+  paperFireCooldownMs?: number;
+  execute?: typeof executeOrPaper;
+  sendAlert?: (message: string) => Promise<unknown>;
   orderbookCache?: LiveOrderBookCache;
   orderbookCacheMaxAgeMs?: number;
   maxMismatchRowsPerCycle?: number;
@@ -103,6 +130,10 @@ export type CrossVenueCycleResult = {
   noEdge: number;
   rejectedPairs: number;
   mismatchCandidates: number;
+  /** Paper legs written this cycle: two per fired pair. */
+  paperTrades: number;
+  /** Reviewed chances that had fired inside the cooldown already. */
+  dedupeSkips: number;
   error?: string;
 };
 
@@ -125,6 +156,12 @@ export async function runCrossVenueCycle(
   const discover = options.discover ?? discoverCrossVenuePairsWithDiagnostics;
   const scanPairs = options.scanPairs ?? scanCrossVenuePairs;
   const hurdlePct = options.hurdlePct ?? DEFAULT_MIN_ANNUALIZED_NET_PCT;
+  const paperSizeUsd = options.paperSizeUsd ?? DEFAULT_CROSS_VENUE_PAPER_SIZE_USD;
+  const maxShortDurationHours =
+    options.maxShortDurationHours ?? DEFAULT_MAX_SHORT_DURATION_HOURS;
+  const paperFireCooldownMs =
+    options.paperFireCooldownMs ?? DEFAULT_CROSS_VENUE_PAPER_FIRE_COOLDOWN_MS;
+  const execute = options.execute ?? executeOrPaper;
 
   try {
     const config =
@@ -159,6 +196,8 @@ export async function runCrossVenueCycle(
     let validated = 0;
     let candidates = 0;
     let rejected = 0;
+    let paperTrades = 0;
+    let dedupeSkips = 0;
 
     // Gate 1 before any book is read. A person's not_equivalent verdict
     // rejects the pair outright; a failed title-and-date screen rejects it
@@ -264,21 +303,122 @@ export async function runCrossVenueCycle(
         continue;
       }
 
-      const status: OpportunityStatus = review === "equivalent" ? "validated" : "candidate";
+      if (review !== "equivalent") {
+        // Above the hurdle, but nobody has read both rulebooks: two open
+        // bets with a good number, journaled as a candidate, never fired.
+        journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+          status: "candidate",
+          reason: CROSS_VENUE_CANDIDATE_REASON,
+          ruleReview: review,
+        });
+        candidates += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("candidate", "passed", null, opportunity));
+        continue;
+      }
 
-      journalCrossVenueOpportunity(opportunity, pair, nowMs, {
-        status,
-        reason: status === "validated" ? opportunity.reason : CROSS_VENUE_CANDIDATE_REASON,
+      // Gate 4 for a pair a person found equivalent: the capital lock is a
+      // class. Since decision E5 (2026-09-05, Kalshi is tradable for the
+      // operator) a short lock paper-fires both legs; medium and long are
+      // carry candidates, as in every other class.
+      const horizon = classifyHorizon({
+        expectedResolutionAt: opportunity.expectedResolutionAt ?? null,
+        nowMs,
+        annualizedPct: opportunity.annualizedPct,
+        hurdlePct,
+        maxShortDurationHours,
+      });
+
+      if (horizon.reject) {
+        journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+          status: "rejected",
+          reason: horizon.reject,
+          ruleReview: review,
+        });
+        rejected += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("rejected", "passed", null, opportunity));
+        continue;
+      }
+
+      const legs = pair ? crossVenuePaperLegs(opportunity, pair, paperSizeUsd) : null;
+
+      if (!horizon.fireable || !legs) {
+        if (horizon.fireable && !legs) {
+          logger?.warn(
+            `cross-venue pair ${opportunity.pairId}: fireable but no paper legs could be sized; kept as a candidate.`,
+          );
+        }
+
+        journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+          status: "candidate",
+          reason: horizon.fireable ? CROSS_VENUE_CANDIDATE_REASON : CARRY_CANDIDATE_REASON,
+          ruleReview: review,
+        });
+        candidates += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("candidate", "passed", null, opportunity));
+        continue;
+      }
+
+      // Gate 5: flow control. The same basket does not fire twice inside
+      // the cooldown; the skip is recorded and the chance stays a chance.
+      const tokenIds = [opportunity.yesLeg.identifier, opportunity.noLeg.identifier];
+      const dedupeKey = buildPaperFireDedupeKey({
+        strategy: CROSS_VENUE_ARB_STRATEGY,
+        eventSlug: opportunity.slug,
+        threshold: CROSS_VENUE_DEDUPE_THRESHOLD,
+        tokenIds,
+      });
+      const recentFire = getRecentPaperFire(dedupeKey, nowMs, paperFireCooldownMs);
+
+      if (recentFire) {
+        recordPaperDedupeSkip({
+          dedupeKey,
+          strategy: CROSS_VENUE_ARB_STRATEGY,
+          slug: opportunity.slug,
+          threshold: CROSS_VENUE_DEDUPE_THRESHOLD,
+          tokenIds,
+          previousFireAt: recentFire.fired_at,
+          skippedAt: nowMs,
+          cooldownMs: paperFireCooldownMs,
+        });
+        dedupeSkips += 1;
+        validated += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("validated", "passed", null, opportunity));
+        continue;
+      }
+
+      const opportunityId = journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+        status: "validated",
+        reason: opportunity.reason,
         ruleReview: review,
       });
 
-      if (status === "validated") {
-        validated += 1;
-      } else {
-        candidates += 1;
+      for (const leg of legs) {
+        execute({ ...leg, opportunityId });
+        paperTrades += 1;
       }
 
-      outcomes.set(opportunity.pairId, outcomeOf(status, "passed", null, opportunity));
+      recordPaperFire({
+        dedupeKey,
+        strategy: CROSS_VENUE_ARB_STRATEGY,
+        eventSlug: opportunity.slug,
+        firedAt: nowMs,
+      });
+      updateOpportunityStatus(opportunityId, {
+        status: "paper_fired",
+        reason: "paper_trade_recorded",
+      });
+      validated += 1;
+      outcomes.set(opportunity.pairId, outcomeOf("paper_fired", "passed", null, opportunity));
+
+      const fired = `Paper opportunity fired (cross-venue): ${opportunity.title} [${opportunity.pairId}], net ${opportunity.netCents} cents a share, ${legs[0]?.paperSizeShares ?? 0} shares, ${opportunity.buyYesVenue} YES against ${opportunity.buyNoVenue} NO.`;
+
+      logger?.info(fired);
+
+      if (options.sendAlert) {
+        void options.sendAlert(fired).catch((error: unknown) => {
+          logger?.warn(`cross-venue paper fire alert failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
     }
 
     for (const noEdge of result?.noEdge ?? []) {
@@ -419,8 +559,8 @@ export async function runCrossVenueCycle(
       validatedOpportunities: validated,
       candidateOpportunities: candidates,
       rejectedOpportunities: rejected,
-      dedupeSkips: 0,
-      paperTrades: 0,
+      dedupeSkips,
+      paperTrades,
       durationMs: Math.max(0, now() - startedAt),
     });
 
@@ -429,7 +569,7 @@ export async function runCrossVenueCycle(
         result?.noEdge.length ?? 0
       } without edge, ${rejected} rejected, ${
         mismatchCandidates.length
-      } mismatch candidate(s).`,
+      } mismatch candidate(s), ${paperTrades} paper trade(s), ${dedupeSkips} dedupe skip(s).`,
     );
 
     return {
@@ -438,6 +578,8 @@ export async function runCrossVenueCycle(
       opportunities: validated,
       candidates,
       noEdge: result?.noEdge.length ?? 0,
+      paperTrades,
+      dedupeSkips,
       rejectedPairs: result?.rejected.length ?? 0,
       mismatchCandidates: mismatchCandidates.length,
     };
@@ -460,6 +602,8 @@ export async function runCrossVenueCycle(
       candidates: 0,
       noEdge: 0,
       rejectedPairs: 0,
+      paperTrades: 0,
+      dedupeSkips: 0,
       mismatchCandidates: 0,
       error: message,
     };
@@ -534,7 +678,7 @@ function journalCrossVenueOpportunity(
     reason: string;
     ruleReview: RuleReviewStatus;
   },
-): void {
+): string {
   const depthUsd = roundUsd(opportunity.executableSize * opportunity.totalTopOfBookCost);
   const record = recordOpportunity({
     strategy: CROSS_VENUE_ARB_STRATEGY,
@@ -604,8 +748,72 @@ function journalCrossVenueOpportunity(
       timestamp: nowMs,
     })),
   );
+
+  return record.id;
 }
 
+
+/**
+ * The two paper legs of a reviewed cross-venue basket: shares are the
+ * smaller of the executable size and what the target capital buys at the
+ * top-of-book sum, each leg priced at its average fill. The Kalshi leg is
+ * journaled under kalshi:<ticker> with the ticker and side as its token, so
+ * the resolution loop settles it against Kalshi's market result; the
+ * Polymarket leg carries its slug and CLOB token.
+ */
+function crossVenuePaperLegs(
+  opportunity: CrossVenueArbOpportunity,
+  pair: CrossVenuePair,
+  paperSizeUsd: number,
+): CrossVenuePaperLeg[] | null {
+  if (!(opportunity.totalTopOfBookCost > 0)) {
+    return null;
+  }
+
+  const shares = roundShares(
+    Math.min(opportunity.executableSize, paperSizeUsd / opportunity.totalTopOfBookCost),
+  );
+
+  if (!(shares > 0)) {
+    return null;
+  }
+
+  const legs: CrossVenuePaperLeg[] = [];
+
+  for (const leg of [opportunity.yesLeg, opportunity.noLeg]) {
+    const price = leg.averageFillPrice;
+
+    if (!(price > 0 && price <= 1)) {
+      return null;
+    }
+
+    const polymarketTokenId =
+      leg.side === "YES" ? pair.polymarket.yesTokenId : pair.polymarket.noTokenId;
+    const kalshi = leg.venue === "kalshi";
+
+    if (!kalshi && !polymarketTokenId?.trim()) {
+      return null;
+    }
+
+    legs.push({
+      strategy: CROSS_VENUE_ARB_STRATEGY,
+      slug: kalshi ? kalshiPaperSlug(pair.kalshi.ticker) : pair.polymarket.slug,
+      question: opportunity.title,
+      tokenId: kalshi ? `${pair.kalshi.ticker}:${leg.side}` : polymarketTokenId,
+      side: leg.side,
+      entryPrice: price,
+      paperSizeUsd: roundUsd(shares * price),
+      paperSizeShares: shares,
+      arbClass: CROSS_VENUE_ARB_STRATEGY,
+    });
+  }
+
+  return legs;
+}
+
+function roundShares(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 function recordCrossVenueRejection(input: {
   pair: CrossVenuePair | undefined;
   pairId: string;

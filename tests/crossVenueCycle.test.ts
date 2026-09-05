@@ -6,6 +6,7 @@ import { closeDb, initDb } from "../src/execution/db.js";
 import { listCrossVenuePairsSince } from "../src/execution/crossVenuePairJournal.js";
 import { listRecentOpportunities } from "../src/execution/opportunityJournal.js";
 import { listOpportunityLegs } from "../src/execution/opportunityLegJournal.js";
+import { listRecentPaperDedupeSkips } from "../src/execution/paperDedupe.js";
 import { listRecentPaperTrades } from "../src/execution/tradeJournal.js";
 import type {
   CrossVenueArbOpportunity,
@@ -159,6 +160,8 @@ describe("cross-venue cycle", () => {
       noEdge: 1,
       rejectedPairs: 1,
       mismatchCandidates: 1,
+      paperTrades: 0,
+      dedupeSkips: 0,
     });
     expect(scanPairs).toHaveBeenCalledWith(
       [expect.objectContaining({ id: "discovered" })],
@@ -245,7 +248,7 @@ describe("cross-venue cycle", () => {
     }
   });
 
-  it("lets only a person's review turn a positive pair into a validated chance", async () => {
+  it("turns an equivalent pair into a chance only inside the short window, and into carry beyond it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "cross-venue-review-"));
     const pairsPath = join(dir, "pairs.json");
 
@@ -276,17 +279,21 @@ describe("cross-venue cycle", () => {
     try {
       const result = await runCrossVenueCycle({ pairsPath, scanPairs, now: () => NOW });
 
-      expect(result).toMatchObject({ pairsScanned: 3, opportunities: 1, candidates: 1 });
+      // The equivalent pair settles in 830 days: every gate passed, but the
+      // lock is long, so it is carry, not a chance (E5 fires only short locks).
+      expect(result).toMatchObject({ pairsScanned: 3, opportunities: 0, candidates: 2, paperTrades: 0 });
 
       const rows = listRecentOpportunities(10);
       const byPair = (id: string) =>
         rows.find((row) => row.slug === `poly-${id}`) ?? rows.find((row) => row.title === `Pair ${id}`);
 
       expect(byPair("equivalent")).toMatchObject({
-        status: "validated",
+        status: "candidate",
+        reason: "carry_candidate",
         ruleScreen: "passed",
         ruleReview: "equivalent",
         ruleMatch: "reviewed",
+        capitalLockClass: "long",
       });
       // a person said the rulebooks differ: gate 1, and no return figures
       expect(byPair("different")).toMatchObject({
@@ -426,7 +433,8 @@ describe("cross-venue cycle", () => {
 
       // only the pairs that passed the screen, or carry a person's equivalent verdict, reach the books
       expect(scanPairs.mock.calls[0]?.[0].map((pair) => pair.id)).toEqual(["reviewed-despite-dates", "clean"]);
-      expect(result).toMatchObject({ pairsScanned: 4, opportunities: 1, candidates: 1 });
+      // the reviewed pair settles far out: every gate passed, carry, not a fired chance
+      expect(result).toMatchObject({ pairsScanned: 4, opportunities: 0, candidates: 2 });
 
       const rows = listRecentOpportunities(10);
       const byTitle = (title: string) => rows.find((row) => row.title === title);
@@ -469,8 +477,10 @@ describe("cross-venue cycle", () => {
     const { readFile } = await import("node:fs/promises");
     const source = await readFile("src/scanner/crossVenueCycle.ts", "utf8");
 
-    expect(source).not.toContain("executeOrPaper");
+    // Since E5 the lane fires paper, and only through the central paper path.
+    expect(source).toContain("executeOrPaper");
     expect(source).not.toContain("placeOrder");
+    expect(source).not.toContain("createAndPostOrder");
     expect(source).not.toContain("@polymarket/clob-client");
   });
 });
@@ -485,9 +495,167 @@ function makePair(id: string): CrossVenuePair {
   };
 }
 
+describe("cross-venue cycle since E5 (Kalshi tradable for the operator)", () => {
+  beforeEach(() => {
+    closeDb();
+    rmSync(testDbPath, { force: true });
+    initDb(testDbPath);
+  });
+
+  afterEach(() => {
+    closeDb();
+    rmSync(testDbPath, { force: true });
+  });
+
+  it("paper-fires an equivalent pair inside the short window, both legs, once per cooldown", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cross-venue-fire-"));
+    const pairsPath = join(dir, "pairs.json");
+
+    writeFileSync(
+      pairsPath,
+      JSON.stringify({
+        pairs: [
+          {
+            ...makePair("short"),
+            review: { verdict: "equivalent", date: "2026-09-05", reviewer: "cc", note: "same source, same deadline" },
+          },
+        ],
+      }),
+    );
+    const scanPairs = vi.fn(async (pairs: CrossVenuePair[]) => ({
+      opportunities: pairs.map((pair) =>
+        makeOpportunity(pair, {
+          annualizedPct: 900,
+          expectedResolutionAt: NOW + 24 * 60 * 60 * 1000,
+          daysToResolution: 1,
+          executableSize: 10,
+        }),
+      ),
+      priceSpreads: [],
+      rejected: [],
+      noEdge: [],
+      orderbookReads: { kalshi: emptyStats(), polymarket: emptyStats(), total: emptyStats() },
+    }));
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    try {
+      const first = await runCrossVenueCycle({
+        pairsPath,
+        scanPairs,
+        logger,
+        now: () => NOW,
+        paperSizeUsd: 20,
+        paperFireCooldownMs: 60_000,
+      });
+
+      expect(first).toMatchObject({ opportunities: 1, candidates: 0, paperTrades: 2, dedupeSkips: 0 });
+      expect(listRecentOpportunities(10)[0]).toMatchObject({
+        status: "paper_fired",
+        reason: "paper_trade_recorded",
+        ruleReview: "equivalent",
+        capitalLockClass: "short",
+      });
+
+      // Ten shares: the executable size, smaller than what 20 dollars buy at 0.954.
+      const trades = listRecentPaperTrades(10);
+      expect(trades).toHaveLength(2);
+      const kalshiLeg = trades.find((trade) => trade.slug === "kalshi:KX-short");
+      const polymarketLeg = trades.find((trade) => trade.slug === "poly-short");
+      expect(kalshiLeg).toMatchObject({
+        strategy: "cross_venue_yes_no_arb",
+        tokenId: "KX-short:YES",
+        side: "YES",
+        entryPrice: 0.42,
+        sizeUsd: 4.2,
+        sizeShares: 10,
+        arbClass: "cross_venue_yes_no_arb",
+        linkStatus: "linked",
+      });
+      expect(polymarketLeg).toMatchObject({
+        tokenId: "no",
+        side: "NO",
+        entryPrice: 0.534,
+        sizeUsd: 5.34,
+        sizeShares: 10,
+      });
+      expect(kalshiLeg?.opportunityId).toBe(listRecentOpportunities(10)[0]?.id);
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Paper opportunity fired (cross-venue): Pair short"));
+      expect(listCrossVenuePairsSince(0, 10).find((pair) => pair.pairId === "short")).toMatchObject({
+        lastStatus: "paper_fired",
+        ruleReview: "equivalent",
+      });
+
+      // Inside the cooldown the same basket is a chance that already fired: a skip, no third leg.
+      const second = await runCrossVenueCycle({
+        pairsPath,
+        scanPairs,
+        logger,
+        now: () => NOW + 1_000,
+        paperSizeUsd: 20,
+        paperFireCooldownMs: 60_000,
+      });
+
+      expect(second).toMatchObject({ opportunities: 1, paperTrades: 0, dedupeSkips: 1 });
+      expect(listRecentPaperTrades(10)).toHaveLength(2);
+      expect(listRecentPaperDedupeSkips(10)[0]).toMatchObject({
+        strategy: "cross_venue_yes_no_arb",
+        slug: "poly-short",
+        previousFireAt: NOW,
+        skippedAt: NOW + 1_000,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("never fires a pair without an equivalent review, however short and however good", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cross-venue-nofire-"));
+    const pairsPath = join(dir, "pairs.json");
+
+    writeFileSync(
+      pairsPath,
+      JSON.stringify({
+        pairs: [{ ...makePair("pending"), review: { verdict: "pending", date: "2026-09-05", note: "draft" } }],
+      }),
+    );
+    const scanPairs = vi.fn(async (pairs: CrossVenuePair[]) => ({
+      opportunities: pairs.map((pair) =>
+        makeOpportunity(pair, {
+          annualizedPct: 900,
+          expectedResolutionAt: NOW + 24 * 60 * 60 * 1000,
+          daysToResolution: 1,
+        }),
+      ),
+      priceSpreads: [],
+      rejected: [],
+      noEdge: [],
+      orderbookReads: { kalshi: emptyStats(), polymarket: emptyStats(), total: emptyStats() },
+    }));
+
+    try {
+      const result = await runCrossVenueCycle({ pairsPath, scanPairs, now: () => NOW });
+
+      expect(result).toMatchObject({ opportunities: 0, candidates: 1, paperTrades: 0 });
+      expect(listRecentOpportunities(10)[0]).toMatchObject({
+        status: "candidate",
+        reason: "cross_venue_candidate",
+        ruleReview: "pending",
+      });
+      expect(listRecentPaperTrades(10)).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 function makeOpportunity(
   pair: CrossVenuePair,
-  overrides: { annualizedPct: number },
+  overrides: {
+    annualizedPct: number;
+    expectedResolutionAt?: number;
+    daysToResolution?: number;
+    executableSize?: number;
+  },
 ): CrossVenueArbOpportunity {
   return {
     pairId: pair.id,
@@ -501,10 +669,10 @@ function makeOpportunity(
     netCents: 3.07,
     roiBps: 321.8,
     totalTopOfBookCost: 0.954,
-    executableSize: 100,
+    executableSize: overrides.executableSize ?? 100,
     maxProfitDollars: 2.9,
     category: "politics",
-    expectedResolutionAt: NOW + 830 * 86_400_000,
+    expectedResolutionAt: overrides.expectedResolutionAt ?? NOW + 830 * 86_400_000,
     reason: "cross_venue_yes_no_below_one",
     feeModel: "curve",
     feeModelVersion: "2026-07-30",
@@ -512,7 +680,7 @@ function makeOpportunity(
     capitalUsd: 95.4,
     grossEdgeBps: 482.18,
     executableNetEdgeBps: 303.98,
-    daysToResolution: 830,
+    daysToResolution: overrides.daysToResolution ?? 830,
     annualizedPct: overrides.annualizedPct,
     ruleMatch: "unverified",
     yesLeg: {
