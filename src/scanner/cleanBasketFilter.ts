@@ -13,6 +13,7 @@ export type CleanBasketFilterReason =
   | "clean_basket_validated"
   | "clean_basket_filter_disabled"
   | "missing_basket_sizing"
+  | "not_neg_risk_event"
   | "nested_temporal_basket"
   | "multi_winner_or_qualifier_basket"
   | "unknown_payoff_structure"
@@ -33,6 +34,14 @@ export type CleanBasketFilterOptions = {
   maxLegSpreadBps: number;
   maxShortDurationHours: number;
   nowMs?: number;
+  /**
+   * The scan cycle runs structure (gate 1) and horizon (gate 4) itself, in
+   * the order docs/ARB_TAXONOMY.md prescribes, and calls this filter for the
+   * executability and economics floors only. Both default to true so the
+   * filter stays a complete gauntlet for every other caller.
+   */
+  checkPayoffStructure?: boolean;
+  checkDuration?: boolean;
 };
 
 export type CleanBasketFilterResult = {
@@ -67,36 +76,40 @@ export function evaluateCleanNegRiskBasket(
     };
   }
 
-  const payoff = classifyPayoffStructure(opportunity);
+  if (config.checkPayoffStructure !== false) {
+    const payoff = classifyPayoffStructure(opportunity);
 
-  if (payoff !== "clean") {
-    return {
-      valid: false,
-      reason: payoff,
-    };
+    if (payoff !== "clean") {
+      return {
+        valid: false,
+        reason: payoff,
+      };
+    }
   }
 
-  const capitalLock = classifyCapitalLock(
-    opportunity.expectedResolutionAt,
-    config.nowMs,
-  );
+  if (config.checkDuration !== false) {
+    const capitalLock = classifyCapitalLock(
+      opportunity.expectedResolutionAt,
+      config.nowMs,
+    );
 
-  if (capitalLock.capitalLockClass === "unknown") {
-    return {
-      valid: false,
-      reason: "unknown_duration_for_short_arb",
-    };
-  }
+    if (capitalLock.capitalLockClass === "unknown") {
+      return {
+        valid: false,
+        reason: "unknown_duration_for_short_arb",
+      };
+    }
 
-  if (
-    capitalLock.capitalLockClass !== "short" ||
-    (capitalLock.durationHours ?? Number.POSITIVE_INFINITY) >
-      config.maxShortDurationHours
-  ) {
-    return {
-      valid: false,
-      reason: "duration_too_long_for_short_arb",
-    };
+    if (
+      capitalLock.capitalLockClass !== "short" ||
+      (capitalLock.durationHours ?? Number.POSITIVE_INFINITY) >
+        config.maxShortDurationHours
+    ) {
+      return {
+        valid: false,
+        reason: "duration_too_long_for_short_arb",
+      };
+    }
   }
 
   const sizing = validated.basketSizing;
@@ -151,6 +164,7 @@ export function evaluateCleanNegRiskBasket(
 
 type PayoffStructureClassification =
   | "clean"
+  | "not_neg_risk_event"
   | "nested_temporal_basket"
   | "multi_winner_or_qualifier_basket"
   | "unknown_payoff_structure";
@@ -161,6 +175,7 @@ function classifyPayoffStructure(
   return classifyNegRiskPayoffStructure({
     eventSlug: opportunity.eventSlug,
     legs: opportunity.legs,
+    negRisk: opportunity.negRisk ?? null,
   }) satisfies NegRiskPayoffStructure;
 }
 

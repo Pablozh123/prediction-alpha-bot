@@ -75,6 +75,23 @@ locked capital, not arbitrage. Every paper trade must name the candidate that
 caused it. Details and the pre-registered 14-day measurement window are in
 [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md#neuaufsetzung-2026-09-04).
 
+## Taxonomy 2026-09-05
+
+Every candidate now carries four axes, published with their labels in the feed
+and documented in [docs/ARB_TAXONOMY.md](docs/ARB_TAXONOMY.md): a class (what
+the basket pays and when that payout is fixed by contract), a capital-lock
+horizon (a class, no longer a rejection), an automated rule screen and a
+person's rule review. Candidates pass five gates in a fixed order, structure
+before executability before economics before horizon before flow control, and
+are rejected for the most fundamental reason they fail; a basket that is not a
+basket carries no return figures. A clean basket above the hurdle rate
+(`MIN_ANNUALIZED_NET_PCT`, default ten percent a year) that locks capital past
+the short window is a `candidate`, carry, and is never paper-fired. Cross-venue
+pairs run a four-stage protocol whose automated screen is specified in
+`config/pair_screen_cases.json` and shared with the website's matcher; a pair is
+hedged only after a person's `equivalent` review in `config/crossVenuePairs.json`.
+The feed is schema `arb_scan/2`, a superset of the first schema.
+
 ## Quick start
 
 ```bash
@@ -87,8 +104,9 @@ npm run dev:once     # one scan cycle (plus one cross-venue pass), then exit
 
 Set `ARB_PUBLISH_DIR` in `.env` to a directory outside the repository. After
 every cycle, and at least every five minutes, the loop writes `arb_scan.json`
-there atomically (schema `arb_scan/1`, validated before the write, no local
-paths). Without the variable nothing is published and the start-up log says
+there atomically (schema `arb_scan/2`, validated before the write, no local
+paths). `npm run feed:fixture -- --out <path>` writes the website's test
+fixture from a seeded journal through the same publisher. Without the variable nothing is published and the start-up log says
 so once. `health.alive` turns false when the last cycle is older than three
 scan intervals (floor: ten minutes); that is the heartbeat the website should
 watch.

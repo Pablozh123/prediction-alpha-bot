@@ -27,6 +27,16 @@ export type NegRiskBracketOpportunity = {
   threshold: number;
   expectedEdge: number;
   expectedResolutionAt?: number | null;
+  /**
+   * The venue's own word on mutual exclusion. `true`/`false` come from the
+   * Gamma event (or, failing that, from every market of the event); `null`
+   * means the flag was never read, which is the case for baskets rebuilt
+   * from orderbook snapshots. Only `false` fails gate 1 on its own.
+   */
+  negRisk?: boolean | null;
+  /** Whether Polymarket augmented the event with an implicit Other leg. */
+  negRiskAugmented?: boolean | null;
+  marketCount?: number;
   reason:
     | "needs_orderbook_depth_check"
     | "snapshot_no_basket_positive_edge_limited_coverage";
@@ -123,6 +133,9 @@ export function scanNegRiskBracketEvents(
         threshold,
         expectedEdge: roundPrice(sumYes - threshold),
         ...(expectedResolutionAt ? { expectedResolutionAt } : {}),
+        negRisk: eventNegRiskFlag(event, markets),
+        negRiskAugmented: optionalTriStateBoolean(event.negRiskAugmented),
+        marketCount: markets.length,
         reason: "needs_orderbook_depth_check",
         legs,
       });
@@ -130,6 +143,56 @@ export function scanNegRiskBracketEvents(
   }
 
   return opportunities;
+}
+
+/**
+ * The venue flag for mutual exclusion, read from the event first and from
+ * the markets second. Missing everywhere means unknown, never false: the
+ * flag can only fail a basket when the venue actually said no.
+ */
+export function eventNegRiskFlag(
+  event: GammaRawEvent,
+  markets: unknown[],
+): boolean | null {
+  const eventFlag = optionalTriStateBoolean(event.negRisk ?? event.neg_risk);
+
+  if (eventFlag !== null) {
+    return eventFlag;
+  }
+
+  const marketFlags = markets
+    .map((market) =>
+      market && typeof market === "object"
+        ? optionalTriStateBoolean((market as Record<string, unknown>).negRisk)
+        : null,
+    )
+    .filter((flag): flag is boolean => flag !== null);
+
+  if (marketFlags.length === 0) {
+    return null;
+  }
+
+  return marketFlags.every((flag) => flag);
+}
+
+function optionalTriStateBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return null;
 }
 
 type NormalizedMarketForBracket = {

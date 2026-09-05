@@ -134,6 +134,12 @@ CREATE TABLE IF NOT EXISTS opportunities (
   days_to_resolution REAL,
   annualized_pct REAL,
   rule_match TEXT,
+  rule_screen TEXT,
+  rule_review TEXT,
+  gate_failed INTEGER,
+  net_profit_usd REAL,
+  resolution_at_kalshi INTEGER,
+  resolution_at_polymarket INTEGER,
   status TEXT NOT NULL,
   reason TEXT,
   token_ids TEXT,
@@ -142,6 +148,35 @@ CREATE TABLE IF NOT EXISTS opportunities (
 
 CREATE INDEX IF NOT EXISTS idx_opportunities_status_timestamp
 ON opportunities(status, timestamp);
+
+CREATE TABLE IF NOT EXISTS cross_venue_pairs (
+  pair_id TEXT PRIMARY KEY,
+  title TEXT,
+  kalshi_ticker TEXT NOT NULL,
+  polymarket_slug TEXT NOT NULL,
+  kalshi_title TEXT,
+  polymarket_question TEXT,
+  category TEXT,
+  source TEXT NOT NULL,
+  resolution_at_kalshi INTEGER,
+  resolution_at_polymarket INTEGER,
+  rule_screen TEXT,
+  rule_screen_detail TEXT,
+  rule_review TEXT,
+  review_json TEXT,
+  kalshi_rules_excerpt TEXT,
+  polymarket_rules_excerpt TEXT,
+  last_gross_cents REAL,
+  last_net_cents REAL,
+  last_annualized_pct REAL,
+  last_executable_size REAL,
+  last_status TEXT,
+  first_seen_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cross_venue_pairs_last_seen
+ON cross_venue_pairs(last_seen_at);
 
 CREATE TABLE IF NOT EXISTS opportunity_legs (
   id TEXT PRIMARY KEY,
@@ -191,7 +226,9 @@ CREATE TABLE IF NOT EXISTS scanner_runs (
   strategy TEXT NOT NULL,
   timestamp INTEGER NOT NULL,
   raw_opportunities INTEGER NOT NULL,
+  near_miss_opportunities INTEGER NOT NULL DEFAULT 0,
   validated_opportunities INTEGER NOT NULL DEFAULT 0,
+  candidate_opportunities INTEGER NOT NULL DEFAULT 0,
   rejected_opportunities INTEGER NOT NULL DEFAULT 0,
   dedupe_skips INTEGER NOT NULL DEFAULT 0,
   paper_trades INTEGER NOT NULL DEFAULT 0,
@@ -354,6 +391,16 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("opportunities", "days_to_resolution", "REAL");
   ensureColumn("opportunities", "annualized_pct", "REAL");
   ensureColumn("opportunities", "rule_match", "TEXT");
+  // Taxonomy columns of 2026-09-05 (docs/ARB_TAXONOMY.md): the two rule
+  // fields that replace the single rule_match, the gate a rejection failed,
+  // the dollar profit at the executable size and both venues' resolution
+  // times for cross-venue rows.
+  ensureColumn("opportunities", "rule_screen", "TEXT");
+  ensureColumn("opportunities", "rule_review", "TEXT");
+  ensureColumn("opportunities", "gate_failed", "INTEGER");
+  ensureColumn("opportunities", "net_profit_usd", "REAL");
+  ensureColumn("opportunities", "resolution_at_kalshi", "INTEGER");
+  ensureColumn("opportunities", "resolution_at_polymarket", "INTEGER");
   // Created here, not in the base schema: on a database from before
   // 2026-09-04 the column only exists once ensureColumn has added it.
   db.exec(
@@ -365,6 +412,8 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("opportunity_legs", "size_usd", "REAL");
   ensureColumn("opportunity_legs", "fee_usd", "REAL");
   ensureColumn("scanner_runs", "dedupe_skips", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("scanner_runs", "near_miss_opportunities", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("scanner_runs", "candidate_opportunities", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("orderbook_snapshots", "event_slug", "TEXT");
   ensureColumn("orderbook_snapshots", "market_id", "TEXT");
   ensureColumn("orderbook_snapshots", "side", "TEXT");

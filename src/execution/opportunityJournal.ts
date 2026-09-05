@@ -1,17 +1,34 @@
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "./db.js";
 import type { CapitalLockClass } from "../utils/marketTime.js";
+import type { RuleReviewStatus, RuleScreenStatus } from "../core/taxonomy.js";
 
+/**
+ * `candidate` is the status of a basket that passed structure,
+ * executability, economics and the hurdle but is not fireable: its capital
+ * lock is medium or long (carry), or it is a cross-venue pair whose rulebooks
+ * no person has confirmed as equivalent. It is published as a carry
+ * candidate, never as a rejection and never as a chance.
+ */
 export type OpportunityStatus =
   | "raw_found"
   | "validated"
+  | "candidate"
   | "rejected"
   | "paper_fired";
 
+export const OPPORTUNITY_STATUSES: readonly OpportunityStatus[] = [
+  "raw_found",
+  "validated",
+  "candidate",
+  "rejected",
+  "paper_fired",
+];
+
 /**
- * How far the resolution rules of a matched pair have been compared. Cross-venue
- * pairs stay `unverified` until a person has read both rulebooks; the scanner
- * never promotes this on its own. `mismatch` is a hard exclusion.
+ * The single rule field of the first schema, kept for readers of
+ * `arb_scan/1`. It is derived from `rule_screen` and `rule_review` since
+ * 2026-09-05 and no longer written by the scanner on its own.
  */
 export type RuleMatchStatus = "unverified" | "reviewed" | "mismatch";
 
@@ -45,6 +62,12 @@ export type OpportunityTelemetryInput = {
   daysToResolution?: number | null;
   annualizedPct?: number | null;
   ruleMatch?: RuleMatchStatus | null;
+  ruleScreen?: RuleScreenStatus | null;
+  ruleReview?: RuleReviewStatus | null;
+  gateFailed?: number | null;
+  netProfitUsd?: number | null;
+  resolutionAtKalshi?: number | null;
+  resolutionAtPolymarket?: number | null;
 };
 
 export type RecordOpportunityInput = OpportunityTelemetryInput & {
@@ -96,6 +119,12 @@ export type OpportunityRecord = {
   daysToResolution: number | null;
   annualizedPct: number | null;
   ruleMatch: RuleMatchStatus | null;
+  ruleScreen: RuleScreenStatus | null;
+  ruleReview: RuleReviewStatus | null;
+  gateFailed: number | null;
+  netProfitUsd: number | null;
+  resolutionAtKalshi: number | null;
+  resolutionAtPolymarket: number | null;
   status: OpportunityStatus;
   reason: string | null;
   tokenIds: string[];
@@ -136,6 +165,12 @@ type OpportunityRow = {
   days_to_resolution: number | null;
   annualized_pct: number | null;
   rule_match: RuleMatchStatus | null;
+  rule_screen: RuleScreenStatus | null;
+  rule_review: RuleReviewStatus | null;
+  gate_failed: number | null;
+  net_profit_usd: number | null;
+  resolution_at_kalshi: number | null;
+  resolution_at_polymarket: number | null;
   status: OpportunityStatus;
   reason: string | null;
   token_ids: string | null;
@@ -181,6 +216,12 @@ const SELECT_COLUMNS = `
   days_to_resolution,
   annualized_pct,
   rule_match,
+  rule_screen,
+  rule_review,
+  gate_failed,
+  net_profit_usd,
+  resolution_at_kalshi,
+  resolution_at_polymarket,
   status,
   reason,
   token_ids,
@@ -246,6 +287,12 @@ export function recordOpportunity(
     daysToResolution: input.daysToResolution ?? null,
     annualizedPct: input.annualizedPct ?? null,
     ruleMatch: input.ruleMatch ?? null,
+    ruleScreen: input.ruleScreen ?? null,
+    ruleReview: input.ruleReview ?? null,
+    gateFailed: input.gateFailed ?? null,
+    netProfitUsd: input.netProfitUsd ?? null,
+    resolutionAtKalshi: input.resolutionAtKalshi ?? null,
+    resolutionAtPolymarket: input.resolutionAtPolymarket ?? null,
     status: input.status ?? "raw_found",
     reason: input.reason ?? null,
     tokenIds,
@@ -289,6 +336,12 @@ export function recordOpportunity(
         days_to_resolution,
         annualized_pct,
         rule_match,
+        rule_screen,
+        rule_review,
+        gate_failed,
+        net_profit_usd,
+        resolution_at_kalshi,
+        resolution_at_polymarket,
         status,
         reason,
         token_ids,
@@ -327,6 +380,12 @@ export function recordOpportunity(
         @daysToResolution,
         @annualizedPct,
         @ruleMatch,
+        @ruleScreen,
+        @ruleReview,
+        @gateFailed,
+        @netProfitUsd,
+        @resolutionAtKalshi,
+        @resolutionAtPolymarket,
         @status,
         @reason,
         @tokenIds,
@@ -382,6 +441,12 @@ export function updateOpportunityStatus(
         days_to_resolution = COALESCE(@daysToResolution, days_to_resolution),
         annualized_pct = COALESCE(@annualizedPct, annualized_pct),
         rule_match = COALESCE(@ruleMatch, rule_match),
+        rule_screen = COALESCE(@ruleScreen, rule_screen),
+        rule_review = COALESCE(@ruleReview, rule_review),
+        gate_failed = COALESCE(@gateFailed, gate_failed),
+        net_profit_usd = COALESCE(@netProfitUsd, net_profit_usd),
+        resolution_at_kalshi = COALESCE(@resolutionAtKalshi, resolution_at_kalshi),
+        resolution_at_polymarket = COALESCE(@resolutionAtPolymarket, resolution_at_polymarket),
         reason = @reason
       WHERE id = @id
       `
@@ -418,6 +483,12 @@ export function updateOpportunityStatus(
       daysToResolution: input.daysToResolution ?? null,
       annualizedPct: input.annualizedPct ?? null,
       ruleMatch: input.ruleMatch ?? null,
+      ruleScreen: input.ruleScreen ?? null,
+      ruleReview: input.ruleReview ?? null,
+      gateFailed: input.gateFailed ?? null,
+      netProfitUsd: input.netProfitUsd ?? null,
+      resolutionAtKalshi: input.resolutionAtKalshi ?? null,
+      resolutionAtPolymarket: input.resolutionAtPolymarket ?? null,
       reason: input.reason ?? null
     });
 
@@ -554,26 +625,42 @@ export function countRejectionReasonsSince(
 }
 
 export function countOpportunitiesByStatusSince(
-  sinceMs: number
+  sinceMs: number,
+  strategy?: string
 ): Record<OpportunityStatus, number> {
   const counts: Record<OpportunityStatus, number> = {
     raw_found: 0,
     validated: 0,
+    candidate: 0,
     rejected: 0,
     paper_fired: 0
   };
+  const rows = strategy
+    ? getDb()
+        .prepare<StatusCountRow>(
+          `
+          SELECT status, COUNT(*) AS count
+          FROM opportunities
+          WHERE timestamp >= ? AND strategy = ?
+          GROUP BY status
+          `
+        )
+        .all(sinceMs, strategy)
+    : getDb()
+        .prepare<StatusCountRow>(
+          `
+          SELECT status, COUNT(*) AS count
+          FROM opportunities
+          WHERE timestamp >= ?
+          GROUP BY status
+          `
+        )
+        .all(sinceMs);
 
-  for (const row of getDb()
-    .prepare<StatusCountRow>(
-      `
-      SELECT status, COUNT(*) AS count
-      FROM opportunities
-      WHERE timestamp >= ?
-      GROUP BY status
-      `
-    )
-    .all(sinceMs)) {
-    counts[row.status] = row.count;
+  for (const row of rows) {
+    if (row.status in counts) {
+      counts[row.status] = row.count;
+    }
   }
 
   return counts;
@@ -618,6 +705,12 @@ function mapOpportunityRow(row: OpportunityRow): OpportunityRecord {
     daysToResolution: row.days_to_resolution,
     annualizedPct: row.annualized_pct,
     ruleMatch: row.rule_match,
+    ruleScreen: row.rule_screen,
+    ruleReview: row.rule_review,
+    gateFailed: row.gate_failed,
+    netProfitUsd: row.net_profit_usd,
+    resolutionAtKalshi: row.resolution_at_kalshi,
+    resolutionAtPolymarket: row.resolution_at_polymarket,
     status: row.status,
     reason: row.reason,
     tokenIds: parseStringArray(row.token_ids),

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { Server } from "node:http";
 import { pathToFileURL } from "node:url";
+import { DEFAULT_MIN_ANNUALIZED_NET_PCT } from "./core/opportunityEconomics.js";
 import {
   parseExecutionRoleMode,
   type ExecutionRoleMode,
@@ -110,6 +111,8 @@ export type BotConfig = {
   fastScanIntervalMs: number;
   maxShortArbDurationHours: number;
   maxScanCycles?: number;
+  /** Hurdle rate in percent per year (docs/ARB_TAXONOMY.md, decision E1). */
+  minAnnualizedNetPct: number;
   minExecutableDepthUsd: number;
   orderbookSnapshotEnabled: boolean;
   orderbookSnapshotGammaEventLimit: number;
@@ -228,6 +231,11 @@ export function loadBotConfig(
     maxScanCycles: parseOptionalPositiveInteger(
       env.MAX_SCAN_CYCLES,
       "MAX_SCAN_CYCLES",
+    ),
+    minAnnualizedNetPct: parseNonNegativeNumber(
+      env.MIN_ANNUALIZED_NET_PCT,
+      DEFAULT_MIN_ANNUALIZED_NET_PCT,
+      "MIN_ANNUALIZED_NET_PCT",
     ),
     minExecutableDepthUsd: parseNonNegativeNumber(
       env.MIN_EXECUTABLE_DEPTH_USD,
@@ -375,6 +383,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
             config.cleanBasketMinMaxPositiveCostUsd,
           minRoiBps: config.cleanBasketMinRoiBps,
         },
+        hurdlePct: config.minAnnualizedNetPct,
         minExecutableDepthUsd: config.minExecutableDepthUsd,
         paperFireCooldownMs: config.paperFireCooldownMs,
         paperSizeUsd: config.paperTargetSizeUsd,
@@ -394,6 +403,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
     (() =>
       runCrossVenueCycle({
         autoDiscover: config.crossVenueAutoDiscover,
+        hurdlePct: config.minAnnualizedNetPct,
         logger,
         minNetCents: config.crossVenueMinNetCents,
         pairsPath: config.crossVenuePairsPath,
@@ -425,6 +435,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
     formatStructuredLog("info", "scanner_config", {
       crossVenueScanEnabled: config.crossVenueScanEnabled,
       executionRoleMode: config.executionRoleMode,
+      hurdlePct: config.minAnnualizedNetPct,
       minExecutableDepthUsd: config.minExecutableDepthUsd,
       paperResolveEnabled: config.paperResolveEnabled,
       paperTargetSizeUsd: config.paperTargetSizeUsd,
@@ -450,6 +461,15 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
       logger,
       sampleNote: MEASUREMENT_NOTE,
       scanIntervalMs: intervalMs,
+      config: {
+        hurdlePct: config.minAnnualizedNetPct,
+        targetSizeUsd: config.paperTargetSizeUsd,
+        minExecutableDepthUsd: config.minExecutableDepthUsd,
+        cleanBasketMinEdgeBps: config.cleanBasketMinEdgeBps,
+        crossVenueMinNetCents: config.crossVenueMinNetCents ?? 0.5,
+        shortMaxHours: config.maxShortArbDurationHours,
+        executionRoleMode: config.executionRoleMode,
+      },
     });
 
   let completedCycles = 0;
@@ -460,6 +480,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
   let paperResolveInterval: ReturnType<typeof setInterval> | undefined;
   let publishInterval: ReturnType<typeof setInterval> | undefined;
   let cycleInFlight = false;
+  let overlapSkips = 0;
   let snapshotInFlight = false;
   let dailyReportInFlight = false;
   let crossVenueInFlight = false;
@@ -553,11 +574,21 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
   const runCycleSafely = (): void => {
     if (cycleInFlight) {
       incrementScanOverlapSkips();
-      logger.warn(
-        formatStructuredLog("warn", "scan_cycle_skipped", {
-          reason: "previous_scan_still_running",
-        }),
-      );
+      overlapSkips += 1;
+
+      // A cycle that walks hundreds of books takes longer than a ten-second
+      // interval, so this overlap is the normal state, not a fault. It is
+      // logged on the first skip and then once per hundred, with the count;
+      // the feed reports the effective cadence from the cycle timestamps.
+      if (overlapSkips === 1 || overlapSkips % 100 === 0) {
+        logger.warn(
+          formatStructuredLog("warn", "scan_cycle_skipped", {
+            reason: "previous_scan_still_running",
+            skips: overlapSkips,
+          }),
+        );
+      }
+
       return;
     }
 

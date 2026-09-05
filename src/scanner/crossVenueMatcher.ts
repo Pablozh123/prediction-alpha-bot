@@ -19,11 +19,20 @@ import {
   type CanonicalOutcome,
 } from "./canonicalPredictionMarket.js";
 import type { CrossVenuePair } from "./crossVenueArbScanner.js";
+import { isCompoundKalshiMarket } from "./crossVenueQuestionMatch.js";
 
 const DEFAULT_MATCH_SCORE = 0.7;
 const DEFAULT_MAX_PAIRS = 25;
 const DEFAULT_KALSHI_MAX_PAGES = 5;
-const MAX_RESOLUTION_TIME_DIFF_MS = 14 * 24 * 60 * 60 * 1000;
+/**
+ * Seven days, the same tolerance the website's matcher uses (decision E6 of
+ * docs/ARB_TAXONOMY.md). Kalshi reports close_time and Polymarket endDate,
+ * and the same question rarely closes at the same minute; a week covers
+ * that. The September and the December Fed meeting share every word except
+ * the month and lie twelve weeks apart, so anything wider lets that pair
+ * through as one question.
+ */
+export const MAX_RESOLUTION_TIME_DIFF_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_CLEAR_MATCH_SCORE_GAP = 0.05;
 
 export type PolymarketBinaryMarket = {
@@ -400,6 +409,10 @@ export function matchCrossVenueMarkets(
           title: [candidate.kalshi.title, candidate.kalshi.subtitle]
             .filter(Boolean)
             .join(" "),
+          expectedResolutionAt: candidate.kalshiResolutionAt,
+          ...(kalshiRulesText(candidate.kalshi)
+            ? { rulesText: kalshiRulesText(candidate.kalshi) }
+            : {}),
           liquidityDollars: candidate.kalshi.liquidityDollars,
           volume24h: candidate.kalshi.volume24h,
         },
@@ -408,6 +421,13 @@ export function matchCrossVenueMarkets(
           question: candidate.polymarket.question,
           yesTokenId: candidate.polymarket.yesTokenId,
           noTokenId: candidate.polymarket.noTokenId,
+          expectedResolutionAt: candidate.polymarket.expectedResolutionAt ?? null,
+          ...(candidate.polymarket.rulesText
+            ? { rulesText: candidate.polymarket.rulesText }
+            : {}),
+          ...(candidate.polymarket.resolutionSource
+            ? { resolutionSource: candidate.polymarket.resolutionSource }
+            : {}),
           liquidityDollars: candidate.polymarket.liquidityDollars,
           volume24h: candidate.polymarket.volume24h,
         },
@@ -556,22 +576,9 @@ export function classifyKalshiCrossVenueEligibility(
     };
   }
 
-  if (/MULTIGAME|CROSSCATEGORY|PARLAY|COMBO/iu.test(tickerText)) {
-    return {
-      eligible: false,
-      reason: "compound_kalshi_market",
-    };
-  }
-
-  const commaSegments = title.split(",").map((segment) => segment.trim());
-  const yesNoClauseCount = commaSegments.filter((segment) =>
-    /^(yes|no)\b/iu.test(segment),
-  ).length;
-
-  if (
-    commaSegments.length >= 3 ||
-    (commaSegments.length >= 2 && yesNoClauseCount >= 2)
-  ) {
+  // One definition of "compound", shared with the pair screen and the
+  // specification in config/pair_screen_cases.json.
+  if (isCompoundKalshiMarket(title, tickerText)) {
     return {
       eligible: false,
       reason: "compound_kalshi_market",
@@ -747,6 +754,12 @@ function hasResolutionTimeMismatch(
 
 function kalshiMarketResolutionAt(kalshi: KalshiMarket): number | null {
   return kalshi.closeTime ?? kalshi.expectedExpirationTime ?? null;
+}
+
+function kalshiRulesText(
+  kalshi: Pick<KalshiMarket, "rulesPrimary" | "rulesSecondary">,
+): string {
+  return compactText([kalshi.rulesPrimary, kalshi.rulesSecondary]);
 }
 
 function kalshiResolutionSurfaceText(

@@ -151,6 +151,33 @@ Schluessel, keine Signatur. Die Stichprobe aufgeloester Paper-Trades ist bis
 zum Ende des Messfensters leer oder klein, und die Datei sagt das in
 `summary.sample_note`.
 
+## Taxonomie 2026-09-05
+
+Datierter Nachtrag. Die Definitionen der Strategien wurden nach
+[ARB_TAXONOMY.md](ARB_TAXONOMY.md) neu gefasst; der Plan dazu mit den Befunden
+steht in [ARB_DEFINITION_PLAN_2026-09-05.md](ARB_DEFINITION_PLAN_2026-09-05.md).
+
+### Was geaendert wurde und warum
+
+| Befund | Aenderung |
+| --- | --- |
+| Der bestplatzierte Kandidat im Feed vom 2026-09-05 war ein Multi-Winner-Korb (Stichwahl mit zwei Teilnehmern), als "zu lange Laufzeit" abgelehnt und mit 185 Prozent p.a. gefuehrt. | Gate-Reihenfolge festgelegt: Struktur vor Ausfuehrbarkeit vor Wirtschaftlichkeit vor Horizont vor Flusskontrolle. Jede Ablehnung traegt `gate_failed`; eine Zeile, die an Gate 1 faellt, traegt keine Renditezahl und kostet keinen Buchabruf. |
+| Laufzeit war eine Ablehnung, keine Klasse. | `capital_lock_class` ist eine Klasse. Ein sauberer Korb ueber der Hurdle (`MIN_ANNUALIZED_NET_PCT`, Start 10 Prozent) mit mittlerer oder langer Bindung ist `candidate` (Carry) und feuert nie paper. |
+| `rule_match: reviewed` wurde fuer Within-Market und NEG_RISK automatisch gesetzt. | Zwei Felder: `rule_screen` (Automatik) und `rule_review` (Mensch, aus `config/crossVenuePairs.json`). `reviewed` im alten Feld heisst jetzt nur noch: per Konstruktion oder durch einen Menschen gleich. |
+| Scanner und Website entschieden mit verschiedenen Regeln, ob zwei Titel dieselbe Frage sind. | `config/pair_screen_cases.json` ist die gemeinsame Spezifikation; beide Matcher bestehen jede Fallreihe in ihren Tests. Termin-Toleranz sieben Tage. |
+| 1.3 Millionen "raw candidates" pro Tag, weil das Watch-Band bis 1.01 mitzaehlte. | `raw` heisst Bruttokante am Quote oder am Buch; das Watch-Band ist `near_miss` und wird nicht mehr journaliert. |
+| Der Feed zeigte 50 abgelehnte Zeilen mit negativer Kante und keine Cross-Venue-Zeile. | Schema `arb_scan/2`: `chances`, `carry_candidates`, `rejected_examples` je Grund, `pairs` mit beiden Regeltexten und dem Pruefprotokoll, `vocabulary` und `config`. Die alte Liste bleibt, garantiert aber jeder Strategie ein paar Zeilen und ordnet nach Dollar-Gewinn am ausfuehrbaren Volumen. |
+| Zyklus laenger als Intervall, 2978 Warnungen. | Der Feed meldet die gehaltene Kadenz (Median der Zyklusabstaende) als `scan_interval_ms`, den konfigurierten Wert daneben; die Warnung faellt einmal und dann je hundert Ausfaelle. |
+
+### Vorregistrierung je Klasse
+
+Ausgewertet 14 Tage nach Inbetriebnahme des Feeds `arb_scan/2`; die Kriterien
+stehen in ARB_TAXONOMY.md, Abschnitt 7. Vorab wird nichts behauptet. Die
+Cross-Venue-Paare stehen nach dem Protokoll: Trump und Rubio 2028
+`not_equivalent` (Studie 2026-07-31), Somaliland, Le Pen und Pritzker als
+Entwuerfe `pending`, Eurovision Sofia stillgelegt. Ob Kalshi fuer den Betreiber
+handelbar ist, bleibt offen (E5).
+
 ## Final statement
 
 Live trading is not implemented and no path in this repository can place an

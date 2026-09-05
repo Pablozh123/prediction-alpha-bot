@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, initDb } from "../src/execution/db.js";
 import {
   countOpportunitiesByStatus,
+  countOpportunitiesByStatusSince,
   listRecentOpportunities,
   listRecentRejectedOpportunities,
   recordOpportunity,
@@ -71,8 +72,41 @@ describe("opportunity journal", () => {
     expect(countOpportunitiesByStatus()).toEqual({
       raw_found: 0,
       validated: 0,
+      candidate: 0,
       rejected: 1,
       paper_fired: 0
     });
+  });
+
+  it("stores the taxonomy fields and counts candidates per strategy", () => {
+    const raw = recordOpportunity({
+      strategy: "neg_risk_bracket_arb",
+      slug: "2028-nominee",
+      rawEdge: 0.03,
+      tokenIds: ["no-a", "no-b"],
+      timestamp: 1_700_000_000_000
+    });
+    const candidate = updateOpportunityStatus(raw.id, {
+      status: "candidate",
+      executableEdge: 0.02,
+      ruleScreen: "passed",
+      ruleReview: null,
+      gateFailed: null,
+      netProfitUsd: 0.59,
+      resolutionAtKalshi: null,
+      resolutionAtPolymarket: 1_720_000_000_000,
+      reason: "carry_candidate"
+    });
+
+    expect(candidate).toMatchObject({
+      status: "candidate",
+      ruleScreen: "passed",
+      ruleReview: null,
+      gateFailed: null,
+      netProfitUsd: 0.59,
+      resolutionAtPolymarket: 1_720_000_000_000
+    });
+    expect(countOpportunitiesByStatusSince(0, "neg_risk_bracket_arb").candidate).toBe(1);
+    expect(countOpportunitiesByStatusSince(0, "within_market_fast_arb").candidate).toBe(0);
   });
 });

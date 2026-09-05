@@ -77,6 +77,7 @@ describe("startup", () => {
       fastScanIntervalMs: 10_000,
       maxShortArbDurationHours: 72,
       maxScanCycles: undefined,
+      minAnnualizedNetPct: 10,
       minExecutableDepthUsd: 5,
       orderbookSnapshotEnabled: false,
       orderbookSnapshotGammaEventLimit: 400,

@@ -13,6 +13,7 @@ export type NegRiskBasketClass =
 
 export type NegRiskPayoffStructure =
   | "clean"
+  | "not_neg_risk_event"
   | "nested_temporal_basket"
   | "multi_winner_or_qualifier_basket"
   | "unknown_payoff_structure";
@@ -29,10 +30,27 @@ export type NegRiskBasketClassification = {
   reason: string;
 };
 
+/**
+ * Gate 1 of docs/ARB_TAXONOMY.md for a NO basket: is the payout N minus one
+ * by construction?
+ *
+ * The venue flag comes first. Polymarket marks mutually exclusive events as
+ * NEG_RISK; an event the venue does not flag is not a basket whatever its
+ * titles look like. `negRisk` is tri-state on purpose: `false` is the venue
+ * saying no, `null`/`undefined` is "not read" (snapshot-built baskets do not
+ * carry the flag) and decides nothing. The text screen then catches the two
+ * shapes the flag does not: legs nested by date, and legs that can pay out
+ * more than once (advance, qualify, runoff, top-N).
+ */
 export function classifyNegRiskPayoffStructure(input: {
   eventSlug?: string | null;
   legs: NegRiskBasketTextLeg[];
+  negRisk?: boolean | null;
 }): NegRiskPayoffStructure {
+  if (input.negRisk === false) {
+    return "not_neg_risk_event";
+  }
+
   const eventSlug = normalizeText(input.eventSlug ?? "");
   const legTexts = input.legs.map((leg) =>
     normalizeText([leg.slug ?? "", leg.question ?? ""].join(" ")),
@@ -62,6 +80,7 @@ export function classifyNegRiskOpportunityRecord(input: {
   eventSlug?: string | null;
   expectedResolutionAt?: number | null;
   legs: NegRiskBasketTextLeg[];
+  negRisk?: boolean | null;
   nowMs?: number;
   reason?: string | null;
 }): NegRiskBasketClassification {
@@ -86,7 +105,9 @@ export function classifyNegRiskOpportunityRecord(input: {
     return {
       basketClass: "invalid_or_ambiguous",
       explanation:
-        "The basket text does not prove a one-winner or clear bucket payoff.",
+        payoffStructure === "not_neg_risk_event"
+          ? "The venue does not flag the event as mutually exclusive, so the legs are not a basket."
+          : "The basket text does not prove a one-winner or clear bucket payoff.",
       payoffStructure,
       reason: payoffStructure,
     };
@@ -177,6 +198,15 @@ export function classifyNegRiskFilterReason(
     };
   }
 
+  if (reason === "not_neg_risk_event") {
+    return {
+      basketClass: "invalid_or_ambiguous",
+      explanation: "The venue does not flag the event as mutually exclusive.",
+      payoffStructure: reason,
+      reason,
+    };
+  }
+
   return {
     basketClass: "invalid_or_ambiguous",
     explanation:
@@ -200,6 +230,7 @@ export function classifyNegRiskOpportunityForPaperFire(
     eventSlug: opportunity.eventSlug,
     expectedResolutionAt: opportunity.expectedResolutionAt,
     legs: opportunity.legs,
+    negRisk: opportunity.negRisk ?? null,
     reason: "paper_trade_recorded",
   });
 }

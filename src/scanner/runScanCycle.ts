@@ -16,14 +16,18 @@ import { recordScanCycle } from "../execution/scanCycleJournal.js";
 import { recordScannerRun } from "../execution/scannerRunJournal.js";
 import {
   computeBasketEconomics,
+  DEFAULT_MIN_ANNUALIZED_NET_PCT,
   isPositiveBps,
+  meetsAnnualizedHurdle,
   type BasketEconomics,
 } from "../core/opportunityEconomics.js";
 import {
   createRejectionCounter,
+  gateForReason,
   type RejectionCounter,
   type RejectionReason,
 } from "../core/rejectionReasons.js";
+import { legacyRuleMatch } from "../core/taxonomy.js";
 import type { ExecutionRoleMode } from "../core/venueFees.js";
 import {
   addOpportunitiesFound,
@@ -44,9 +48,7 @@ import {
   DEFAULT_CLEAN_BASKET_FILTER_OPTIONS,
   type CleanBasketFilterOptions,
 } from "./cleanBasketFilter.js";
-import {
-  classifyNegRiskOpportunityForPaperFire,
-} from "./negRiskBasketClassifier.js";
+import { classifyNegRiskPayoffStructure } from "./negRiskBasketClassifier.js";
 import { scanNegRiskCombinedArbs } from "./negRiskSnapshotScanner.js";
 import {
   validateNegRiskOpportunity,
@@ -68,9 +70,16 @@ import {
 import type { NegRiskBasketSizingLeg } from "./basketSizing.js";
 import {
   classifyCapitalLock,
+  type CapitalLockClass,
 } from "../utils/marketTime.js";
 
 export const NEG_RISK_BRACKET_STRATEGY = "neg_risk_bracket_arb";
+/**
+ * Reason text of a `candidate` row: structurally clean, executable, net
+ * positive and above the hurdle, but locked past the short-arb window. It is
+ * a class, not a rejection, and never paper-fires (decision E2).
+ */
+export const CARRY_CANDIDATE_REASON = "carry_candidate";
 const DEFAULT_PAPER_SIZE_USD = 1;
 const DEFAULT_MIN_PAPER_FIRE_EDGE = 0;
 const DEFAULT_MIN_EXECUTABLE_DEPTH_USD = 0;
@@ -91,6 +100,10 @@ export type ScanCycleResult = {
   paperTrades: number;
   skippedDuplicates: number;
   rejectedOpportunities: number;
+  /** Carry candidates: clean and above the hurdle, but not fireable. */
+  candidateOpportunities: number;
+  /** Watch-band candidates with no gross edge at the quote or the book. */
+  nearMissOpportunities: number;
   rejectionsByReason: Partial<Record<RejectionReason, number>>;
   error?: string;
 };
@@ -112,6 +125,11 @@ export type RunScanCycleOptions = {
   minExecutableDepthUsd?: number;
   /** How legs are priced for fees: every leg taker, or one resting maker. */
   roleMode?: ExecutionRoleMode;
+  /**
+   * Annualised net return, in percent, a basket must clear to be a chance
+   * or a carry candidate (MIN_ANNUALIZED_NET_PCT, decision E1).
+   */
+  hurdlePct?: number;
   maxOpportunitiesPerStrategy?: number;
   now?: () => number;
   validateOpportunity?: (
@@ -162,6 +180,10 @@ export async function runScanCycle(
     options.validateWithinMarket ?? validateWithinMarketOpportunity;
   const cleanBasketFilterOptions = options.cleanBasketFilterOptions;
   const sendAlert = options.sendAlert;
+  const hurdlePct = options.hurdlePct ?? DEFAULT_MIN_ANNUALIZED_NET_PCT;
+  const maxShortDurationHours =
+    cleanBasketFilterOptions?.maxShortDurationHours ??
+    DEFAULT_CLEAN_BASKET_FILTER_OPTIONS.maxShortDurationHours;
   const rejections = createRejectionCounter();
 
   try {
@@ -219,6 +241,15 @@ export async function runScanCycle(
       0,
       maxOpportunitiesPerStrategy,
     );
+    // "raw" is a candidate with a gross edge at the quote. The watch band
+    // above 1.00 is scanned too, because a stale quote can hide a book that
+    // does show an edge, but it is counted as a near miss and journaled
+    // only when the book promotes it.
+    const withinMarketQuoteRawCount = rawWithinMarketOpportunities.filter(
+      isRawAtQuote,
+    ).length;
+    const withinMarketNearMissCount =
+      rawWithinMarketOpportunities.length - withinMarketQuoteRawCount;
     addOpportunitiesFound(
       rawNegRiskOpportunities.length +
         rawWithinMarketOpportunities.length +
@@ -232,11 +263,11 @@ export async function runScanCycle(
       ),
     );
     logger.info(
-      formatOpportunityCount(
+      `${formatOpportunityCount(
         "Within-market opportunities",
-        rawWithinMarketOpportunities.length,
-        withinMarketOpportunities.length,
-      ),
+        withinMarketQuoteRawCount,
+        Math.min(withinMarketQuoteRawCount, withinMarketOpportunities.length),
+      )}; near misses in the watch band: ${withinMarketNearMissCount}`,
     );
     logger.info(`Clear-win-watch diagnostics: ${rawClearWinWatchOpportunities.length}`);
 
@@ -245,12 +276,15 @@ export async function runScanCycle(
     let rejectedOpportunities = 0;
     let negRiskPaperTrades = 0;
     let negRiskValidatedOpportunities = 0;
+    let negRiskCandidateOpportunities = 0;
     let negRiskRejectedOpportunities = 0;
     let negRiskDedupeSkips = 0;
     let withinMarketPaperTrades = 0;
     let withinMarketValidatedOpportunities = 0;
+    let withinMarketCandidateOpportunities = 0;
     let withinMarketRejectedOpportunities = 0;
     let withinMarketDedupeSkips = 0;
+    let withinMarketPromotedNearMisses = 0;
     let clearWinWatchRejectedOpportunities = 0;
 
     for (const opportunity of rawClearWinWatchOpportunities.slice(
@@ -315,6 +349,34 @@ export async function runScanCycle(
         ...buildTimingTelemetry(opportunity.expectedResolutionAt, nowMs),
       });
 
+      // Gate 1: identity and structure. A basket whose legs are not
+      // mutually exclusive is not a basket, whatever its horizon or its
+      // quoted edge; it is rejected for the structural reason and carries
+      // no return figures, because those would be computed on a payout
+      // that does not exist.
+      const payoff = classifyNegRiskPayoffStructure({
+        eventSlug: opportunity.eventSlug,
+        legs: opportunity.legs,
+        negRisk: opportunity.negRisk ?? null,
+      });
+
+      if (payoff !== "clean") {
+        updateOpportunityStatus(journaledOpportunity.id, {
+          status: "rejected",
+          ...buildTimingTelemetry(opportunity.expectedResolutionAt, nowMs),
+          legCount: opportunity.legs.length,
+          reason: rejections.record(payoff),
+          gateFailed: gateForReason(payoff),
+        });
+        validationWarningLimiter.warn(
+          `skipped invalid paper opportunity: ${payoff}.`,
+        );
+        rejectedOpportunities += 1;
+        negRiskRejectedOpportunities += 1;
+        continue;
+      }
+
+      // Gate 2: executability, priced against the books that would fill it.
       const validated = await validateOpportunity(opportunity, paperSizeUsd);
       const executableEdge = validated.expectedGrossEdge;
       const economics = buildNegRiskEconomics(validated, opportunity, {
@@ -325,6 +387,8 @@ export async function runScanCycle(
         ...buildValidationTelemetry(validated),
         ...buildEconomicsTelemetry(economics, validated.minLegDepthUsd),
         ...buildTimingTelemetry(opportunity.expectedResolutionAt, nowMs),
+        ruleScreen: "passed" as const,
+        ruleMatch: legacyRuleMatch("passed", null),
       };
       recordNegRiskLegTelemetry({
         economics,
@@ -339,6 +403,7 @@ export async function runScanCycle(
           status: "rejected",
           ...telemetry,
           reason: rejections.record(reason),
+          gateFailed: gateForReason(reason),
         });
         validationWarningLimiter.warn(
           `skipped invalid paper opportunity: ${reason}.`,
@@ -362,6 +427,7 @@ export async function runScanCycle(
         continue;
       }
 
+      // Gate 3: economics at the executable size, net of both fee curves.
       if (economics && !isPositiveBps(economics.executableNetEdgeBps)) {
         reject("non_positive_net_edge_after_fees");
         continue;
@@ -372,16 +438,6 @@ export async function runScanCycle(
         continue;
       }
 
-      const durationRejectReason = getShortDurationRejectReason(
-        opportunity.expectedResolutionAt,
-        nowMs,
-      );
-
-      if (durationRejectReason) {
-        reject(durationRejectReason);
-        continue;
-      }
-
       const cleanBasket = evaluateCleanNegRiskBasket(
         opportunity,
         validated,
@@ -389,22 +445,44 @@ export async function runScanCycle(
           ...cleanBasketFilterOptions,
           enabled: true,
           nowMs,
+          checkPayoffStructure: false,
+          checkDuration: false,
         },
       );
-      const basketClassification = classifyNegRiskOpportunityForPaperFire(
-        opportunity,
-        cleanBasket.reason,
-      );
 
-      if (!cleanBasket.valid || basketClassification.basketClass !== "clean_arb") {
+      if (!cleanBasket.valid) {
         reject(cleanBasket.reason as RejectionReason);
+        continue;
+      }
+
+      // Gate 4: horizon. Once the hurdle is met the capital lock is a class,
+      // not a rejection: short fires, medium and long are carry candidates.
+      const horizon = classifyHorizon({
+        expectedResolutionAt: opportunity.expectedResolutionAt,
+        nowMs,
+        annualizedPct: economics?.annualizedPct ?? null,
+        hurdlePct,
+        maxShortDurationHours,
+      });
+
+      if (horizon.reject) {
+        reject(horizon.reject);
+        continue;
+      }
+
+      if (!horizon.fireable) {
+        updateOpportunityStatus(journaledOpportunity.id, {
+          status: "candidate",
+          ...telemetry,
+          reason: CARRY_CANDIDATE_REASON,
+        });
+        negRiskCandidateOpportunities += 1;
         continue;
       }
 
       updateOpportunityStatus(journaledOpportunity.id, {
         status: "validated",
         ...telemetry,
-        ruleMatch: "reviewed",
         reason: cleanBasket.reason,
       });
       negRiskValidatedOpportunities += 1;
@@ -446,7 +524,6 @@ export async function runScanCycle(
       updateOpportunityStatus(journaledOpportunity.id, {
         status: "paper_fired",
         ...telemetry,
-        ruleMatch: "reviewed",
         reason: "paper_trade_recorded",
       });
       await sendPaperFireAlert({
@@ -466,6 +543,7 @@ export async function runScanCycle(
         minExecutableDepthUsd,
         nowMs: now(),
         opportunity,
+        nearMiss: !isRawAtQuote(opportunity),
         paperFireCooldownMs,
         paperSizeUsd,
         rejections,
@@ -473,6 +551,8 @@ export async function runScanCycle(
         sendAlert,
         validateWithinMarket,
         minPaperFireEdge,
+        hurdlePct,
+        maxShortDurationHours,
       });
 
       paperTrades += result.paperTrades;
@@ -480,15 +560,21 @@ export async function runScanCycle(
       rejectedOpportunities += result.rejectedOpportunities;
       withinMarketPaperTrades += result.paperTrades;
       withinMarketValidatedOpportunities += result.validatedOpportunities;
+      withinMarketCandidateOpportunities += result.candidateOpportunities;
       withinMarketRejectedOpportunities += result.rejectedOpportunities;
       withinMarketDedupeSkips += result.skippedDuplicates;
+      withinMarketPromotedNearMisses += result.promotedNearMisses;
     }
+
+    const withinMarketNearMissesLeft =
+      withinMarketNearMissCount - withinMarketPromotedNearMisses;
 
     recordScannerRun({
       strategy: NEG_RISK_BRACKET_STRATEGY,
       timestamp: cycleStartedAt,
       rawOpportunities: rawNegRiskOpportunities.length,
       validatedOpportunities: negRiskValidatedOpportunities,
+      candidateOpportunities: negRiskCandidateOpportunities,
       rejectedOpportunities: negRiskRejectedOpportunities,
       dedupeSkips: negRiskDedupeSkips,
       paperTrades: negRiskPaperTrades,
@@ -497,8 +583,10 @@ export async function runScanCycle(
     recordScannerRun({
       strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
       timestamp: cycleStartedAt,
-      rawOpportunities: rawWithinMarketOpportunities.length,
+      rawOpportunities: withinMarketQuoteRawCount + withinMarketPromotedNearMisses,
+      nearMissOpportunities: withinMarketNearMissesLeft,
       validatedOpportunities: withinMarketValidatedOpportunities,
+      candidateOpportunities: withinMarketCandidateOpportunities,
       rejectedOpportunities: withinMarketRejectedOpportunities,
       dedupeSkips: withinMarketDedupeSkips,
       paperTrades: withinMarketPaperTrades,
@@ -526,6 +614,9 @@ export async function runScanCycle(
       paperTrades,
       skippedDuplicates,
       rejectedOpportunities,
+      candidateOpportunities:
+        negRiskCandidateOpportunities + withinMarketCandidateOpportunities,
+      nearMissOpportunities: withinMarketNearMissesLeft,
       rejectionsByReason: rejections.counts(),
     };
 
@@ -549,6 +640,8 @@ export async function runScanCycle(
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: rejections.counts(),
       error: message,
     };
@@ -619,11 +712,15 @@ type ProcessWithinMarketOpportunityInput = {
   minExecutableDepthUsd: number;
   nowMs: number;
   opportunity: WithinMarketArbOpportunity;
+  /** The quote showed no gross edge; only the book can make this a row. */
+  nearMiss: boolean;
   paperFireCooldownMs: number;
   paperSizeUsd: number;
   minPaperFireEdge: number;
   rejections: RejectionCounter;
   roleMode: ExecutionRoleMode;
+  hurdlePct: number;
+  maxShortDurationHours: number;
   sendAlert?: (message: string) => Promise<unknown>;
   validateWithinMarket: (
     opportunity: WithinMarketArbOpportunity,
@@ -636,6 +733,18 @@ type ProcessOpportunityResult = {
   skippedDuplicates: number;
   rejectedOpportunities: number;
   validatedOpportunities: number;
+  candidateOpportunities: number;
+  /** Near misses whose book showed an edge; they count as raw. */
+  promotedNearMisses: number;
+};
+
+const EMPTY_PROCESS_RESULT: ProcessOpportunityResult = {
+  paperTrades: 0,
+  skippedDuplicates: 0,
+  rejectedOpportunities: 0,
+  validatedOpportunities: 0,
+  candidateOpportunities: 0,
+  promotedNearMisses: 0,
 };
 
 async function processWithinMarketOpportunity(
@@ -670,14 +779,24 @@ async function processWithinMarketOpportunity(
     });
     input.logger.info("skipped duplicate paper opportunity.");
 
-    return {
-      paperTrades: 0,
-      skippedDuplicates: 1,
-      rejectedOpportunities: 0,
-      validatedOpportunities: 0,
-    };
+    return { ...EMPTY_PROCESS_RESULT, skippedDuplicates: 1 };
   }
 
+  // Gate 1 is trivial for one contract: YES and NO of the same market pay
+  // exactly one dollar together by construction. Gate 2 comes before the
+  // journal entry so that a near miss, a quote without an edge, becomes a
+  // row only when the book actually shows one.
+  const validated = await input.validateWithinMarket(
+    input.opportunity,
+    input.paperSizeUsd,
+  );
+  const executableEdge = validated.expectedGrossEdge;
+
+  if (input.nearMiss && (executableEdge === null || executableEdge <= 0)) {
+    return EMPTY_PROCESS_RESULT;
+  }
+
+  const promotedNearMisses = input.nearMiss ? 1 : 0;
   const journaledOpportunity = recordOpportunity({
     strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
     slug: input.opportunity.slug,
@@ -690,13 +809,10 @@ async function processWithinMarketOpportunity(
     tokenIds,
     timestamp: input.nowMs,
     ...buildTimingTelemetry(input.opportunity.expectedResolutionAt ?? null, input.nowMs),
+    ruleScreen: "structural",
+    ruleMatch: legacyRuleMatch("structural", null),
   });
 
-  const validated = await input.validateWithinMarket(
-    input.opportunity,
-    input.paperSizeUsd,
-  );
-  const executableEdge = validated.expectedGrossEdge;
   const economics = buildWithinMarketEconomics(validated, input.opportunity, {
     nowMs: input.nowMs,
     roleMode: input.roleMode,
@@ -705,6 +821,8 @@ async function processWithinMarketOpportunity(
     ...buildValidationTelemetry(validated),
     ...buildEconomicsTelemetry(economics, validated.minLegDepthUsd),
     ...buildTimingTelemetry(input.opportunity.expectedResolutionAt ?? null, input.nowMs),
+    ruleScreen: "structural" as const,
+    ruleMatch: legacyRuleMatch("structural", null),
   };
   recordWithinMarketLegTelemetry({
     economics,
@@ -719,15 +837,11 @@ async function processWithinMarketOpportunity(
       status: "rejected",
       ...telemetry,
       reason: input.rejections.record(reason),
+      gateFailed: gateForReason(reason),
     });
     input.logger.warn(`skipped invalid paper opportunity: ${reason}.`);
 
-    return {
-      paperTrades: 0,
-      skippedDuplicates: 0,
-      rejectedOpportunities: 1,
-      validatedOpportunities: 0,
-    };
+    return { ...EMPTY_PROCESS_RESULT, rejectedOpportunities: 1, promotedNearMisses };
   };
 
   if (!validated.valid) {
@@ -743,6 +857,11 @@ async function processWithinMarketOpportunity(
     return rejected("non_positive_executable_edge");
   }
 
+  if (withinMarketSpreadBps(validated) > DEFAULT_CLEAN_BASKET_FILTER_OPTIONS.maxLegSpreadBps) {
+    return rejected("wide_leg_spread");
+  }
+
+  // Gate 3: economics at the executable size, net of the fee curve.
   if (economics && !isPositiveBps(economics.executableNetEdgeBps)) {
     return rejected("non_positive_net_edge_after_fees");
   }
@@ -751,23 +870,32 @@ async function processWithinMarketOpportunity(
     return rejected("insufficient_depth_for_target_size");
   }
 
-  const durationRejectReason = getShortDurationRejectReason(
-    input.opportunity.expectedResolutionAt ?? null,
-    input.nowMs,
-  );
+  // Gate 4: horizon, a class once the hurdle is met.
+  const horizon = classifyHorizon({
+    expectedResolutionAt: input.opportunity.expectedResolutionAt ?? null,
+    nowMs: input.nowMs,
+    annualizedPct: economics?.annualizedPct ?? null,
+    hurdlePct: input.hurdlePct,
+    maxShortDurationHours: input.maxShortDurationHours,
+  });
 
-  if (durationRejectReason) {
-    return rejected(durationRejectReason);
+  if (horizon.reject) {
+    return rejected(horizon.reject);
   }
 
-  if (withinMarketSpreadBps(validated) > DEFAULT_CLEAN_BASKET_FILTER_OPTIONS.maxLegSpreadBps) {
-    return rejected("wide_leg_spread");
+  if (!horizon.fireable) {
+    updateOpportunityStatus(journaledOpportunity.id, {
+      status: "candidate",
+      ...telemetry,
+      reason: CARRY_CANDIDATE_REASON,
+    });
+
+    return { ...EMPTY_PROCESS_RESULT, candidateOpportunities: 1, promotedNearMisses };
   }
 
   updateOpportunityStatus(journaledOpportunity.id, {
     status: "validated",
     ...telemetry,
-    ruleMatch: "reviewed",
     reason: validated.reason,
   });
 
@@ -808,7 +936,6 @@ async function processWithinMarketOpportunity(
   updateOpportunityStatus(journaledOpportunity.id, {
     status: "paper_fired",
     ...telemetry,
-    ruleMatch: "reviewed",
     reason: "paper_trade_recorded",
   });
   await sendPaperFireAlert({
@@ -821,11 +948,16 @@ async function processWithinMarketOpportunity(
   });
 
   return {
+    ...EMPTY_PROCESS_RESULT,
     paperTrades: 2,
-    skippedDuplicates: 0,
-    rejectedOpportunities: 0,
     validatedOpportunities: 1,
+    promotedNearMisses,
   };
+}
+
+/** A quote with a gross edge: the sum of both asks is below one dollar. */
+function isRawAtQuote(opportunity: WithinMarketArbOpportunity): boolean {
+  return roundPrice(opportunity.totalCost) < 1;
 }
 
 async function sendPaperFireAlert(input: {
@@ -1063,21 +1195,52 @@ function buildTimingTelemetry(
   };
 }
 
-function getShortDurationRejectReason(
-  expectedResolutionAt: number | null | undefined,
-  nowMs: number,
-): "unknown_duration_for_short_arb" | "duration_too_long_for_short_arb" | null {
-  const capitalLock = classifyCapitalLock(expectedResolutionAt, nowMs);
+type HorizonOutcome = {
+  reject: RejectionReason | null;
+  /** Short capital lock inside the configured window: paper-fires. */
+  fireable: boolean;
+  capitalLockClass: CapitalLockClass;
+};
+
+/**
+ * Gate 4 of docs/ARB_TAXONOMY.md. Only two things reject here: an unknown
+ * resolution time (an undated basket is never a chance) and an annualised
+ * net return below the hurdle. Everything else is a class: `short` fires,
+ * `medium` and `long` are carry candidates.
+ */
+export function classifyHorizon(input: {
+  expectedResolutionAt: number | null | undefined;
+  nowMs: number;
+  annualizedPct: number | null;
+  hurdlePct: number;
+  maxShortDurationHours: number;
+}): HorizonOutcome {
+  const capitalLock = classifyCapitalLock(input.expectedResolutionAt, input.nowMs);
 
   if (capitalLock.capitalLockClass === "unknown") {
-    return "unknown_duration_for_short_arb";
+    return {
+      reject: "unknown_duration_for_short_arb",
+      fireable: false,
+      capitalLockClass: "unknown",
+    };
   }
 
-  if (capitalLock.capitalLockClass !== "short") {
-    return "duration_too_long_for_short_arb";
+  if (!meetsAnnualizedHurdle(input.annualizedPct, input.hurdlePct)) {
+    return {
+      reject: "below_annualized_hurdle",
+      fireable: false,
+      capitalLockClass: capitalLock.capitalLockClass,
+    };
   }
 
-  return null;
+  return {
+    reject: null,
+    fireable:
+      capitalLock.capitalLockClass === "short" &&
+      (capitalLock.durationHours ?? Number.POSITIVE_INFINITY) <=
+        input.maxShortDurationHours,
+    capitalLockClass: capitalLock.capitalLockClass,
+  };
 }
 
 function withinMarketSpreadBps(
