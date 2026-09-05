@@ -1,5 +1,6 @@
 import {
   fetchNegRiskEvents,
+  isClosedGammaMarket,
   normalizeGammaMarket,
   type GammaRawEvent,
 } from "../utils/gamma.js";
@@ -202,6 +203,8 @@ type NormalizedMarketForBracket = {
   clobTokenIds: string[];
   outcomePrices: string[];
   expectedResolutionAt?: number | null;
+  closed?: boolean;
+  acceptingOrders?: boolean;
 };
 
 function normalizeBracketLeg(
@@ -218,6 +221,13 @@ function normalizeBracketLeg(
 
   if (!market.question) {
     throw new Error(`market "${market.id}" missing question.`);
+  }
+
+  // An event stays active while one of its markets has already closed
+  // (staggered deadlines settle one by one). A closed leg has a known
+  // outcome and no book; the basket around it is no longer a basket.
+  if (isClosedGammaMarket(market)) {
+    throw new Error(`market "${market.id}" is closed.`);
   }
 
   const [yesTokenId, noTokenId] = market.clobTokenIds;

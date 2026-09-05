@@ -36,6 +36,7 @@ export const REJECTION_REASONS = [
   "insufficient_leg_depth",
   "wide_leg_spread",
   "missing_basket_sizing",
+  "past_expected_resolution",
   // gate 3: economics
   "non_positive_executable_edge",
   "non_positive_net_edge_after_fees",
@@ -99,6 +100,7 @@ export const REJECTION_GATES: Readonly<Record<RejectionReason, RejectionGate | n
   insufficient_leg_depth: 2,
   wide_leg_spread: 2,
   missing_basket_sizing: 2,
+  past_expected_resolution: 2,
   non_positive_executable_edge: 3,
   non_positive_net_edge_after_fees: 3,
   below_min_net_edge: 3,
@@ -139,6 +141,7 @@ export const REJECTION_REASON_LABELS: Readonly<Record<RejectionReason, string>> 
   insufficient_leg_depth: "clean-basket leg depth floor not met",
   wide_leg_spread: "leg spread wider than allowed",
   missing_basket_sizing: "basket could not be sized against depth",
+  past_expected_resolution: "expected resolution time already passed",
   non_positive_executable_edge: "edge gone at executable prices",
   non_positive_net_edge_after_fees: "edge gone after venue fees",
   below_min_net_edge: "net edge below the configured floor",

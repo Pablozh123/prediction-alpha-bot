@@ -194,6 +194,8 @@ export const arbScanPaperPositionSchema = z.object({
   expected_edge_bps: z.number().nullable(),
   status: z.enum(["open", "resolved"]),
   pnl_usd: z.number().nullable(),
+  /** Why a resolved row has its figure, or has none (e.g. filled_after_close). */
+  resolution_reason: z.string().nullable(),
 });
 
 export const arbScanPairSchema = z.object({
@@ -487,6 +489,7 @@ export function buildArbScanSnapshot(
         expected_edge_bps: expectedEdgeBps,
         status: trade.resolved ? ("resolved" as const) : ("open" as const),
         pnl_usd: trade.resolved && !trade.inflationFlagged ? trade.pnl : null,
+        resolution_reason: trade.resolved ? trade.resolutionReason : null,
       };
     },
   );
@@ -541,7 +544,9 @@ export function buildArbScanSnapshot(
       candidates_24h: statusCounts.candidate,
       paper_fired_24h: paper.firedSince,
       open_paper_positions: paper.open,
-      resolved_paper_trades: paper.resolved,
+      // The n of the PnL figure next to it: resolved, linked to a candidate,
+      // not flagged. Rows closed with a reason and no figure are not counted.
+      resolved_paper_trades: paper.resolvedLinked,
       resolved_paper_pnl_usd: paper.resolvedPnlUsd,
       sample_note: sampleNoteParts.join(". ") + ".",
     },

@@ -264,6 +264,31 @@ function seedJournals(): void {
     timestamp: FIXTURE_NOW - 3 * DAY + 1,
   });
 
+  // A row from the May 2026 runs: unlinked, filled on a market that had
+  // closed months before, and closed by the resolution pass with a reason
+  // instead of a figure. The paper book shows the reason.
+  const afterClose = recordPaperTrade({
+    strategy: "neg_risk_bracket_arb",
+    slug: "microstrategy-sell-any-bitcoin-in-2025",
+    question: "MicroStrategy sells any Bitcoin in 2025?",
+    tokenId: "fix-mstr-no",
+    side: "NO",
+    sizeUsd: 1,
+    entryPrice: 0.02,
+    arbClass: "neg_risk_bracket_arb",
+    timestamp: FIXTURE_NOW - 108 * DAY,
+  });
+  getDb()
+    .prepare(
+      `
+      UPDATE paper_trades
+      SET resolved = 1, inflation_flagged = 1, resolution_reason = 'filled_after_close',
+          resolved_at = @resolvedAt, link_status = 'legacy_unlinked'
+      WHERE id = @id
+      `,
+    )
+    .run({ id: afterClose.id, resolvedAt: FIXTURE_NOW - 243 * DAY });
+
   // A same-market row that failed at the book: gate 3, negative net edge.
   const thinBook = recordOpportunity({
     strategy: "within_market_fast_arb",
@@ -690,13 +715,18 @@ export function stabilizeIds(snapshot: ArbScanSnapshot): ArbScanSnapshot {
   const tradeKey = (trade: ArbScanSnapshot["paper_positions"][number]): string =>
     [trade.opened_at, trade.strategy, trade.title, trade.capital_usd].join("|");
 
+  // Opportunities only the paper book refers to (older than the published
+  // lists) continue the numbering in the order the book's rows meet them.
+  let unpublished = 0;
+
   [...snapshot.paper_positions]
     .sort((left, right) => tradeKey(left).localeCompare(tradeKey(right)))
     .forEach((trade, index) => {
       mapping.set(trade.trade_id, `pt-${String(index + 1).padStart(4, "0")}`);
 
       if (trade.opportunity_id && !mapping.has(trade.opportunity_id)) {
-        mapping.set(trade.opportunity_id, `opp-${String(rows.size + index + 1).padStart(4, "0")}`);
+        unpublished += 1;
+        mapping.set(trade.opportunity_id, `opp-${String(rows.size + unpublished).padStart(4, "0")}`);
       }
     });
 

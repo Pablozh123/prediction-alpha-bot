@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   arb_class TEXT,
   link_status TEXT,
   timestamp INTEGER NOT NULL,
-  resolved_at INTEGER
+  resolved_at INTEGER,
+  resolution_checked_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS live_trades (
@@ -363,6 +364,7 @@ export function initDb(databasePath = DEFAULT_DB_PATH): SqliteDatabase {
   ensureColumn("paper_trades", "size_shares", "REAL");
   ensureColumn("paper_trades", "resolution_reason", "TEXT");
   ensureColumn("paper_trades", "link_status", "TEXT");
+  ensureColumn("paper_trades", "resolution_checked_at", "INTEGER");
   ensureColumn("opportunities", "fillable_usd", "REAL");
   ensureColumn("opportunities", "min_leg_depth_usd", "REAL");
   ensureColumn("opportunities", "leg_count", "INTEGER");

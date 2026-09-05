@@ -30,6 +30,10 @@ export type NormalizedGammaMarket = {
   outcomePrices: string[];
   category?: string;
   expectedResolutionAt?: number | null;
+  /** Gamma's closed flag, when the payload carries one. */
+  closed?: boolean;
+  /** Gamma's acceptingOrders flag, when the payload carries one. */
+  acceptingOrders?: boolean;
 };
 
 export async function fetchNegRiskEvents(
@@ -181,8 +185,21 @@ export function normalizeGammaMarket(
       "outcomePrices"
     ),
     ...(gammaCategory(market) ? { category: gammaCategory(market) } : {}),
-    ...(expectedResolutionAt ? { expectedResolutionAt } : {})
+    ...(expectedResolutionAt ? { expectedResolutionAt } : {}),
+    ...(nullableBoolean(market.closed) !== null
+      ? { closed: nullableBoolean(market.closed) as boolean }
+      : {}),
+    ...(nullableBoolean(market.acceptingOrders) !== null
+      ? { acceptingOrders: nullableBoolean(market.acceptingOrders) as boolean }
+      : {})
   };
+}
+
+/** A market Gamma reports as closed, or as no longer accepting orders. */
+export function isClosedGammaMarket(
+  market: Pick<NormalizedGammaMarket, "closed" | "acceptingOrders">
+): boolean {
+  return market.closed === true || market.acceptingOrders === false;
 }
 
 /**
@@ -216,6 +233,26 @@ function optionalString(value: unknown): string {
   }
 
   return "";
+}
+
+function nullableBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return null;
 }
 
 function optionalBoolean(value: unknown): boolean {

@@ -46,6 +46,7 @@ describe("taxonomy", () => {
 
     expect(gateForReason("multi_winner_or_qualifier_basket")).toBe(1);
     expect(gateForReason("rule_review_not_equivalent")).toBe(1);
+    expect(gateForReason("past_expected_resolution")).toBe(2);
     expect(gateForReason("partial_basket_invalid")).toBe(2);
     expect(gateForReason("non_positive_net_edge_after_fees")).toBe(3);
     expect(gateForReason("below_annualized_hurdle")).toBe(4);

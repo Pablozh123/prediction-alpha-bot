@@ -148,6 +148,15 @@ book), `MIN_EXECUTABLE_DEPTH_USD`, `EXECUTION_ROLE_MODE` (`taker` default,
 (`PAPER_RESOLVE_INTERVAL_MS`). Long-duration clean baskets stay visible in
 reports as diagnostic rows.
 
+The paper resolution asks Gamma for closed markets (`closed=true`; without the
+flag a settled market is not listed at all, which is why nothing resolved
+between May and September 2026), rotates through the open slugs fifty at a
+time, and closes a fill stamped after the market's close or priced without a
+usable entry with a reason and no figure; a split settlement pays half a
+dollar a share to both sides. A market past its expected resolution time is
+rejected at gate 2 and never paper-fired, a closed market inside an active
+event is skipped, and `executeOrPaper` refuses a fill at zero.
+
 ## Paper-only status
 
 The project does not support live trading. Every execution path routes through

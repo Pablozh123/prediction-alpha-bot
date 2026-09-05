@@ -8,6 +8,7 @@ import {
   DEFAULT_WITHIN_MARKET_WATCH_THRESHOLD,
   paperWithinMarketArbOpportunity,
   scanWithinMarketArbs,
+  scanWithinMarketGammaEvents,
   scanWithinMarketSnapshotOpportunities,
   WITHIN_MARKET_ARB_STRATEGY,
   type WithinMarketSnapshotRow,
@@ -239,6 +240,35 @@ describe("paperWithinMarketArbOpportunity", () => {
     expect(source).not.toContain("postOrder");
     expect(source).not.toContain("buyLimit");
     expect(source).not.toContain("sellPosition");
+  });
+});
+
+describe("scanWithinMarketGammaEvents", () => {
+  it("drops a closed market inside an active event before it can look like a candidate", () => {
+    const open = {
+      id: "m1",
+      slug: "open-market",
+      question: "Open?",
+      clobTokenIds: '["y1","n1"]',
+      outcomes: '["Yes","No"]',
+      outcomePrices: '["0.45","0.52"]',
+    };
+    // Last prices on a settled market sum to nothing like a dollar; without
+    // the flag they would read as the widest gap on the venue.
+    const closed = {
+      ...open,
+      id: "m2",
+      slug: "closed-market",
+      closed: true,
+      outcomePrices: '["0.01","0.02"]',
+    };
+    const stopped = { ...open, id: "m3", slug: "stopped-market", acceptingOrders: false };
+
+    const found = scanWithinMarketGammaEvents([
+      { slug: "event", markets: [open, closed, stopped] },
+    ]);
+
+    expect(found.map((opportunity) => opportunity.slug)).toEqual(["open-market"]);
   });
 });
 

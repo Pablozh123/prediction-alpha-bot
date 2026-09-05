@@ -104,4 +104,19 @@ describe("executeOrPaper", () => {
 
     expect(listRecentPaperTrades(10)).toEqual([]);
   });
+
+  it("refuses a fill at zero: it is not a fill", () => {
+    expect(() =>
+      executeOrPaper({
+        strategy: "neg_risk_bracket_arb",
+        tokenId: "token-no",
+        opportunityId: "opp-1",
+        side: "NO",
+        entryPrice: 0,
+        paperSizeUsd: 1
+      })
+    ).toThrow();
+
+    expect(listRecentPaperTrades(10)).toEqual([]);
+  });
 });
