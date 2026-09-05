@@ -181,6 +181,40 @@ describe("scanNegRiskBracketEvents", () => {
   });
 });
 
+describe("scanNegRiskBracketEvents on closed legs", () => {
+  it("skips and warns when a market inside an active event has closed", () => {
+    const warn = vi.fn();
+    const events = [
+      makeEvent("closed-leg", [
+        makeMarket("m1", "a", "A?", "0.40"),
+        { ...makeMarket("m2", "b", "B?", "0.35"), closed: true },
+        makeMarket("m3", "c", "C?", "0.31")
+      ])
+    ];
+
+    expect(scanNegRiskBracketEvents(events, { warn })).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      'Skipping NEG_RISK event "closed-leg": market "m2" is closed.'
+    );
+  });
+
+  it("skips and warns when a market no longer accepts orders", () => {
+    const warn = vi.fn();
+    const events = [
+      makeEvent("stopped-leg", [
+        makeMarket("m1", "a", "A?", "0.40"),
+        makeMarket("m2", "b", "B?", "0.35"),
+        { ...makeMarket("m3", "c", "C?", "0.31"), acceptingOrders: "false" }
+      ])
+    ];
+
+    expect(scanNegRiskBracketEvents(events, { warn })).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      'Skipping NEG_RISK event "stopped-leg": market "m3" is closed.'
+    );
+  });
+});
+
 function makeEvent(slug: string, markets: GammaRawEvent["markets"]): GammaRawEvent {
   return {
     slug,

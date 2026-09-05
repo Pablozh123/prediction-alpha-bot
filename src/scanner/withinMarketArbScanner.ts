@@ -5,6 +5,7 @@ import {
 import {
   fetchActiveEvents,
   gammaCategory,
+  isClosedGammaMarket,
   normalizeGammaMarket,
   type GammaRawEvent,
 } from "../utils/gamma.js";
@@ -148,7 +149,10 @@ export function scanWithinMarketGammaEvents(
         const askYes = Number(market.outcomePrices[0]);
         const askNo = Number(market.outcomePrices[1]);
 
+        // A closed market inside an active event has no book to fill
+        // against; its last prices are not quotes.
         if (
+          isClosedGammaMarket(market) ||
           !market.slug ||
           !market.question ||
           !yesTokenId ||

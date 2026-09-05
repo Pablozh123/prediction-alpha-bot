@@ -178,6 +178,46 @@ Cross-Venue-Paare stehen nach dem Protokoll: Trump und Rubio 2028
 Entwuerfe `pending`, Eurovision Sofia stillgelegt. Ob Kalshi fuer den Betreiber
 handelbar ist, bleibt offen (E5).
 
+## Paper-Aufloesung 2026-09-05
+
+Befund, aus dem Aufloesungslauf des Terminal-Repos (dort
+`docs/research/arb_paper_resolution_2026-09-05.md`): 167 Paper-Trades seit
+Mai, keiner aufgeloest, obwohl 156 auf laengst abgerechneten Maerkten lagen.
+Ursache: `src/execution/paperResolution.ts` fragte Gamma `/markets?slug=`
+ohne `closed=true`, und dieser Endpunkt listet abgerechnete Maerkte nur mit
+dem Parameter; die Antwort war fuer jeden abgerechneten Markt eine leere
+Liste. Zweiter Befund: 98 der 156 Fills lagen zeitlich nach dem `closedTime`
+des Marktes, 83 davon zum Preis 0.000; der alte Scanner hat abgerechnete
+Maerkte bepreist.
+
+Aenderungen:
+
+- Die Aufloesung fragt mit `closed=true`; ein Markt, der dort nicht
+  erscheint, gilt fuer diese Abfrage als offen
+  (`not_found_among_closed_markets`).
+- Ein Fill nach dem Close, ein Einstieg ohne tragfaehige Stueckzahl (Preis
+  0) und ein Markt ohne Abrechnungspreis werden geschlossen mit Grund und
+  ohne Zahl: `resolved = 1`, `pnl = NULL`, `inflation_flagged = 1`,
+  `resolution_reason` etwa `filled_after_close`. Sie verlassen die
+  Warteschlange und gehen in keine PnL-Summe ein.
+- 0.5/0.5-Abrechnungen zahlen beiden Seiten einen halben Dollar je Anteil
+  (`split_settlement`), statt ewig `ambiguous` zu bleiben.
+- Die Batch (50 Slugs je Lauf) rotiert nach `resolution_checked_at`
+  (neue Spalte, ALTER TABLE ADD COLUMN), statt immer die aeltesten 50 zu
+  fragen; mit 156 offenen Slugs kamen die neueren nie dran.
+- Gate 2 lehnt einen Markt ab, dessen erwartete Aufloesungszeit vorbei ist
+  (`past_expected_resolution`); beide Scanner ueberspringen Maerkte mit
+  `closed` oder `acceptingOrders: false`; `executeOrPaper` verlangt einen
+  Einstiegspreis ueber null.
+- `summary.resolved_paper_trades` im Feed ist die Stueckzahl der
+  PnL-Summe (verknuepft, nicht geflaggt), nicht mehr jede aufgeloeste Zeile;
+  `paper_positions[].resolution_reason` nennt den Grund je Zeile.
+
+Folge fuer das Messfenster: die 20 verknuepften Trades vom Mai bekommen
+Zahlen, die 147 Altfaelle einen Grund. Die Zahlen der Website-Analyse
+(minus 1.52 USD auf 12.52 USD Einsatz ueber die vier Koerbe) sind der
+Massstab, an dem der Lauf des Scanners gemessen wird.
+
 ## Final statement
 
 Live trading is not implemented and no path in this repository can place an

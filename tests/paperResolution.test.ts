@@ -1,9 +1,11 @@
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDb, initDb } from "../src/execution/db.js";
 import {
   calculatePaperPnlOnlyIfResolutionKnown,
+  fetchMarketResolution,
   resolveOpenPaperTradesBatch,
   resolvePaperTradesForMarket,
   type MarketResolution,
@@ -272,6 +274,189 @@ describe("paper resolution tracking", () => {
       canCalculate: false,
       reason: "market_not_closed"
     });
+  });
+
+  it("asks Gamma for closed markets and reads an empty answer as still open", async () => {
+    const get = vi.spyOn(axios, "get").mockResolvedValue({ data: [] });
+
+    const resolution = await fetchMarketResolution("settled-slug");
+
+    expect(get).toHaveBeenCalledWith(
+      "https://gamma-api.polymarket.com/markets",
+      expect.objectContaining({ params: { slug: "settled-slug", closed: true } })
+    );
+    expect(resolution).toMatchObject({
+      status: "unresolved",
+      reason: "not_found_among_closed_markets"
+    });
+    get.mockRestore();
+  });
+
+  it("reads Gamma's settled market shape: string arrays and a space-separated closedTime", async () => {
+    const get = vi.spyOn(axios, "get").mockResolvedValue({
+      data: [
+        {
+          slug: "microstrategy-sell-any-bitcoin-in-2025",
+          closed: true,
+          umaResolutionStatus: "resolved",
+          closedTime: "2026-01-05 04:22:25+00",
+          outcomes: '["Yes", "No"]',
+          outcomePrices: '["0", "1"]'
+        }
+      ]
+    });
+
+    const resolution = await fetchMarketResolution(
+      "microstrategy-sell-any-bitcoin-in-2025"
+    );
+
+    expect(resolution).toMatchObject({
+      status: "resolved",
+      winningSide: "NO",
+      resolvedAt: Date.parse("2026-01-05T04:22:25Z"),
+      reason: "final_outcome_prices"
+    });
+    get.mockRestore();
+  });
+
+  it("pays half a dollar a share on a split settlement", async () => {
+    const get = vi.spyOn(axios, "get").mockResolvedValue({
+      data: [
+        {
+          slug: "split-market",
+          closed: true,
+          umaResolutionStatus: "resolved",
+          closedTime: "2026-08-01T00:00:00Z",
+          outcomes: '["Yes", "No"]',
+          outcomePrices: '["0.5", "0.5"]'
+        }
+      ]
+    });
+    recordPaperTrade({
+      strategy: "neg_risk_bracket_arb",
+      slug: "split-market",
+      side: "NO",
+      sizeUsd: 4,
+      sizeShares: 8,
+      entryPrice: 0.5,
+      timestamp: Date.parse("2026-07-01T00:00:00Z")
+    });
+
+    const result = await resolvePaperTradesForMarket("split-market");
+
+    expect(result).toMatchObject({
+      resolutionStatus: "resolved",
+      resolvedCount: 1,
+      closedWithoutFigureCount: 0,
+      reason: "split_settlement"
+    });
+    const [trade] = listRecentPaperTrades(1);
+    expect(trade?.exitPrice).toBe(0.5);
+    expect(trade?.pnl).toBe(0);
+    get.mockRestore();
+  });
+
+  it("closes a fill stamped after the market's close with a reason and no figure", async () => {
+    recordPaperTrade({
+      strategy: "neg_risk_bracket_arb",
+      slug: "closed-before-fill",
+      side: "NO",
+      sizeUsd: 1,
+      entryPrice: 0.02,
+      timestamp: 2_000
+    });
+
+    const result = await resolvePaperTradesForMarket("closed-before-fill", {
+      fetchResolution: async () => ({
+        status: "resolved",
+        slug: "closed-before-fill",
+        winningSide: "NO",
+        resolvedAt: 1_000,
+        reason: "final_outcome_prices"
+      })
+    });
+
+    expect(result).toMatchObject({
+      resolvedCount: 0,
+      unresolvedCount: 0,
+      flaggedCount: 1,
+      closedWithoutFigureCount: 1
+    });
+    const [trade] = listRecentPaperTrades(1);
+    expect(trade?.resolved).toBe(true);
+    expect(trade?.pnl).toBeNull();
+    expect(trade?.exitPrice).toBeNull();
+    expect(trade?.inflationFlagged).toBe(true);
+    expect(trade?.resolutionReason).toBe("filled_after_close");
+    expect(trade?.resolvedAt).toBe(1_000);
+    // It has left the queue: the next batch has nothing to ask.
+    const batch = await resolveOpenPaperTradesBatch({
+      fetchResolution: async () => {
+        throw new Error("must not be asked");
+      }
+    });
+    expect(batch.checkedSlugs).toBe(0);
+  });
+
+  it("closes a settled trade whose entry cannot carry a share count, with the reason", async () => {
+    recordPaperTrade({
+      strategy: "neg_risk_bracket_arb",
+      slug: "zero-entry",
+      side: "NO",
+      sizeUsd: 1,
+      entryPrice: 0,
+      timestamp: 1
+    });
+
+    const result = await resolvePaperTradesForMarket("zero-entry", {
+      fetchResolution: async () => ({
+        status: "resolved",
+        slug: "zero-entry",
+        winningSide: "NO",
+        resolvedAt: 5,
+        reason: "final_outcome_prices"
+      })
+    });
+
+    expect(result).toMatchObject({ resolvedCount: 0, closedWithoutFigureCount: 1 });
+    const [trade] = listRecentPaperTrades(1);
+    expect(trade?.resolved).toBe(true);
+    expect(trade?.pnl).toBeNull();
+    expect(trade?.resolutionReason).toBe("invalid_entry_price");
+  });
+
+  it("rotates the batch through the least recently checked slugs", async () => {
+    for (const [slug, timestamp] of [
+      ["a", 1],
+      ["b", 2],
+      ["c", 3]
+    ] as const) {
+      recordPaperTrade({
+        strategy: "within_market_yes_no_arb",
+        slug,
+        side: "YES",
+        sizeUsd: 1,
+        entryPrice: 0.5,
+        timestamp
+      });
+    }
+    const asked: string[] = [];
+    const fetchResolution = async (
+      lookup: ResolutionLookup
+    ): Promise<MarketResolution> => {
+      const slug = typeof lookup === "string" ? lookup : (lookup.slug ?? "");
+
+      asked.push(slug);
+
+      return { status: "unresolved", slug, reason: "not_found_among_closed_markets" };
+    };
+
+    await resolveOpenPaperTradesBatch({ fetchResolution, limit: 2, now: () => 100 });
+    await resolveOpenPaperTradesBatch({ fetchResolution, limit: 2, now: () => 200 });
+
+    // First pass: the two oldest fills. Second pass: the slug never asked,
+    // then the oldest of the two already asked.
+    expect(asked).toEqual(["a", "b", "c", "a"]);
   });
 
   it("contains no live order integration", () => {

@@ -376,6 +376,25 @@ export async function runScanCycle(
         continue;
       }
 
+      // A market past its expected resolution time is settled or settling;
+      // nothing on its book fills a basket. The May 2026 journal holds 98
+      // paper fills on markets that had already closed.
+      if (isPastExpectedResolution(opportunity.expectedResolutionAt, nowMs)) {
+        updateOpportunityStatus(journaledOpportunity.id, {
+          status: "rejected",
+          ...buildTimingTelemetry(opportunity.expectedResolutionAt, nowMs),
+          legCount: opportunity.legs.length,
+          reason: rejections.record("past_expected_resolution"),
+          gateFailed: gateForReason("past_expected_resolution"),
+        });
+        validationWarningLimiter.warn(
+          "skipped invalid paper opportunity: past_expected_resolution.",
+        );
+        rejectedOpportunities += 1;
+        negRiskRejectedOpportunities += 1;
+        continue;
+      }
+
       // Gate 2: executability, priced against the books that would fill it.
       const validated = await validateOpportunity(opportunity, paperSizeUsd);
       const executableEdge = validated.expectedGrossEdge;
@@ -780,6 +799,46 @@ async function processWithinMarketOpportunity(
     input.logger.info("skipped duplicate paper opportunity.");
 
     return { ...EMPTY_PROCESS_RESULT, skippedDuplicates: 1 };
+  }
+
+  // A market past its expected resolution time is settled or settling: no
+  // quote on it is a fill. A near miss on such a market is not even a row.
+  if (
+    isPastExpectedResolution(
+      input.opportunity.expectedResolutionAt ?? null,
+      input.nowMs,
+    )
+  ) {
+    if (input.nearMiss) {
+      return EMPTY_PROCESS_RESULT;
+    }
+
+    const pastOpportunity = recordOpportunity({
+      strategy: WITHIN_MARKET_FAST_ARB_STRATEGY,
+      slug: input.opportunity.slug,
+      title: input.opportunity.question,
+      venues: ["polymarket"],
+      category: input.opportunity.category ?? null,
+      rawEdge: input.opportunity.expectedEdge,
+      status: "raw_found",
+      reason: input.opportunity.reason,
+      tokenIds,
+      timestamp: input.nowMs,
+      ...buildTimingTelemetry(input.opportunity.expectedResolutionAt ?? null, input.nowMs),
+      ruleScreen: "structural",
+      ruleMatch: legacyRuleMatch("structural", null),
+    });
+    updateOpportunityStatus(pastOpportunity.id, {
+      status: "rejected",
+      ...buildTimingTelemetry(input.opportunity.expectedResolutionAt ?? null, input.nowMs),
+      reason: input.rejections.record("past_expected_resolution"),
+      gateFailed: gateForReason("past_expected_resolution"),
+    });
+    input.logger.warn(
+      "skipped invalid paper opportunity: past_expected_resolution.",
+    );
+
+    return { ...EMPTY_PROCESS_RESULT, rejectedOpportunities: 1 };
   }
 
   // Gate 1 is trivial for one contract: YES and NO of the same market pay
@@ -1193,6 +1252,22 @@ function buildTimingTelemetry(
     durationHours: capitalLock.durationHours,
     capitalLockClass: capitalLock.capitalLockClass,
   };
+}
+
+/**
+ * True when the expected resolution time is known and already behind the
+ * clock. Such a market is settled or settling; nothing on its book is a fill.
+ */
+export function isPastExpectedResolution(
+  expectedResolutionAt: number | null | undefined,
+  nowMs: number,
+): boolean {
+  return (
+    typeof expectedResolutionAt === "number" &&
+    Number.isFinite(expectedResolutionAt) &&
+    expectedResolutionAt > 0 &&
+    expectedResolutionAt < nowMs
+  );
 }
 
 type HorizonOutcome = {

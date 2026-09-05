@@ -6,6 +6,16 @@ import { retryWithBackoff, withTimeout } from "../utils/reliability.js";
 
 const GAMMA_MARKETS_URL = "https://gamma-api.polymarket.com/markets";
 const GAMMA_TIMEOUT_MS = 10_000;
+// Gamma lists a settled market only when asked for closed markets: the plain
+// slug query answers with an empty list. This lookup asked without the flag
+// from May to September 2026 and never saw a settlement; the terminal's own
+// resolution pass found it (docs/research/arb_paper_resolution_2026-09-05.md
+// in that repo). A market not found among the closed ones is, for this
+// lookup, still open.
+const GAMMA_CLOSED_ONLY = { closed: true } as const;
+// A split settlement pays half a dollar a share to both sides.
+const SPLIT_PRICE = 0.5;
+const SPLIT_TOLERANCE = 0.001;
 
 export type ResolutionLookup =
   | string
@@ -29,7 +39,10 @@ export type MarketResolution =
     }
   | {
       status: "resolved";
-      winningSide: PaperTradeSide;
+      /** The side that pays one dollar a share; null on a split settlement. */
+      winningSide: PaperTradeSide | null;
+      /** Settlement price per side; derived from winningSide when absent. */
+      settlement?: Record<PaperTradeSide, number>;
       slug?: string;
       conditionId?: string;
       resolvedAt?: number;
@@ -54,6 +67,8 @@ export type ResolvePaperTradesResult = {
   resolvedCount: number;
   unresolvedCount: number;
   flaggedCount: number;
+  /** Trades on a settled market that got a reason instead of a figure. */
+  closedWithoutFigureCount: number;
   reason: string;
 };
 
@@ -72,6 +87,7 @@ export type BatchResolvePaperTradesResult = {
   resolvedCount: number;
   unresolvedCount: number;
   flaggedCount: number;
+  closedWithoutFigureCount: number;
   results: ResolvePaperTradesResult[];
 };
 
@@ -120,8 +136,8 @@ export async function fetchMarketResolution(
       withTimeout(
         axios.get<unknown>(GAMMA_MARKETS_URL, {
           params: request.slug
-            ? { slug: request.slug }
-            : { condition_ids: request.conditionId },
+            ? { slug: request.slug, ...GAMMA_CLOSED_ONLY }
+            : { condition_ids: request.conditionId, ...GAMMA_CLOSED_ONLY },
           timeout: GAMMA_TIMEOUT_MS
         }),
         GAMMA_TIMEOUT_MS + 1_000,
@@ -136,7 +152,7 @@ export async function fetchMarketResolution(
       status: "unresolved",
       slug: request.slug,
       conditionId: request.conditionId,
-      reason: "market_not_found"
+      reason: "not_found_among_closed_markets"
     };
   }
 
@@ -152,6 +168,7 @@ export async function resolvePaperTradesForMarket(
   const resolution = await fetchResolution(lookup);
   const slug = request.slug ?? resolution.slug;
   const conditionId = request.conditionId ?? resolution.conditionId;
+  const checkedAt = options.now?.() ?? Date.now();
 
   if (!slug) {
     return {
@@ -161,11 +178,15 @@ export async function resolvePaperTradesForMarket(
       resolvedCount: 0,
       unresolvedCount: countUnresolvedPaperTrades(),
       flaggedCount: 0,
+      closedWithoutFigureCount: 0,
       reason: "paper_trade_slug_required"
     };
   }
 
   const trades = listUnresolvedPaperTradesForSlug(slug);
+  // Every lookup stamps the slug, resolved or not, so the batch rotates
+  // through the journal instead of re-asking the oldest slugs every time.
+  markSlugChecked(slug, checkedAt);
 
   if (resolution.status === "unresolved") {
     return {
@@ -175,6 +196,7 @@ export async function resolvePaperTradesForMarket(
       resolvedCount: 0,
       unresolvedCount: trades.length,
       flaggedCount: 0,
+      closedWithoutFigureCount: 0,
       reason: resolution.reason
     };
   }
@@ -189,23 +211,37 @@ export async function resolvePaperTradesForMarket(
       resolvedCount: 0,
       unresolvedCount: trades.length,
       flaggedCount,
+      closedWithoutFigureCount: 0,
       reason: resolution.reason
     };
   }
 
   let resolvedCount = 0;
-  let flaggedCount = 0;
-  const resolvedAt = resolution.resolvedAt ?? options.now?.() ?? Date.now();
+  let closedWithoutFigureCount = 0;
+  const resolvedAt = resolution.resolvedAt ?? checkedAt;
 
   for (const trade of trades) {
+    // A fill stamped after the market's close was never a fill: the scanner
+    // was pricing a settled market. 98 of the 167 rows from May 2026 are of
+    // this kind. The row closes with the reason and no figure, leaves the
+    // queue, and never enters a PnL sum.
+    if (
+      resolution.resolvedAt !== undefined &&
+      trade.timestamp > resolution.resolvedAt
+    ) {
+      closeTradeWithoutFigure(trade.id, "filled_after_close", resolvedAt);
+      closedWithoutFigureCount += 1;
+      continue;
+    }
+
     const calculation = calculatePaperPnlOnlyIfResolutionKnown(
       trade,
       resolution
     );
 
     if (!calculation.canCalculate) {
-      flagTrade(trade.id, calculation.reason);
-      flaggedCount += 1;
+      closeTradeWithoutFigure(trade.id, calculation.reason, resolvedAt);
+      closedWithoutFigureCount += 1;
       continue;
     }
 
@@ -237,8 +273,9 @@ export async function resolvePaperTradesForMarket(
     conditionId,
     resolutionStatus: resolution.status,
     resolvedCount,
-    unresolvedCount: trades.length - resolvedCount,
-    flaggedCount,
+    unresolvedCount: trades.length - resolvedCount - closedWithoutFigureCount,
+    flaggedCount: closedWithoutFigureCount,
+    closedWithoutFigureCount,
     reason: resolution.reason
   };
 }
@@ -271,6 +308,10 @@ export async function resolveOpenPaperTradesBatch(
       skippedNoSlugCount +
       results.reduce((sum, row) => sum + row.unresolvedCount, 0),
     flaggedCount: results.reduce((sum, row) => sum + row.flaggedCount, 0),
+    closedWithoutFigureCount: results.reduce(
+      (sum, row) => sum + row.closedWithoutFigureCount,
+      0
+    ),
     results
   };
 }
@@ -317,7 +358,15 @@ export function calculatePaperPnlOnlyIfResolutionKnown(
     };
   }
 
-  const exitPrice = trade.side === resolution.winningSide ? 1 : 0;
+  const exitPrice = settlementPriceForSide(resolution, trade.side);
+
+  if (exitPrice === null) {
+    return {
+      canCalculate: false,
+      reason: "no_settlement_price"
+    };
+  }
+
   const shares = trade.sizeShares ?? trade.sizeUsd / trade.entryPrice;
   const pnl = roundToCentsSafe(shares * exitPrice - trade.sizeUsd);
 
@@ -348,6 +397,11 @@ export function countUnresolvedPaperTrades(slug?: string): number {
   );
 }
 
+/**
+ * Least recently checked first. With 156 open slugs and a batch of 50, the
+ * old order (oldest fill first) asked the same 50 slugs every half hour and
+ * never reached the rest.
+ */
 function listUnresolvedPaperTradeSlugs(limit: number): string[] {
   if (!Number.isFinite(limit) || limit <= 0) {
     return [];
@@ -360,7 +414,7 @@ function listUnresolvedPaperTradeSlugs(limit: number): string[] {
       FROM paper_trades
       WHERE resolved = 0 AND slug IS NOT NULL AND TRIM(slug) != ''
       GROUP BY slug
-      ORDER BY MIN(timestamp) ASC
+      ORDER BY MIN(COALESCE(resolution_checked_at, 0)) ASC, MIN(timestamp) ASC
       LIMIT ?
       `
     )
@@ -428,17 +482,42 @@ function flagAmbiguousTrades(slug: string, reason: string): number {
     .run({ slug, reason }).changes;
 }
 
-function flagTrade(id: string, reason: string): void {
+/**
+ * The market has settled but the row gets no figure: the fill came after the
+ * close, or the entry price cannot carry a share count. The row is closed with
+ * the reason, flagged so no PnL sum picks it up, and leaves the queue.
+ */
+function closeTradeWithoutFigure(
+  id: string,
+  reason: string,
+  resolvedAt: number
+): void {
   getDb()
     .prepare(
       `
       UPDATE paper_trades
-      SET inflation_flagged = 1,
+      SET resolved = 1,
+          exit_price = NULL,
+          pnl = NULL,
+          inflation_flagged = 1,
+          resolved_at = @resolvedAt,
           resolution_reason = @reason
       WHERE id = @id AND resolved = 0
       `
     )
-    .run({ id, reason });
+    .run({ id, reason, resolvedAt });
+}
+
+function markSlugChecked(slug: string, checkedAt: number): void {
+  getDb()
+    .prepare(
+      `
+      UPDATE paper_trades
+      SET resolution_checked_at = @checkedAt
+      WHERE slug = @slug AND resolved = 0
+      `
+    )
+    .run({ slug, checkedAt });
 }
 
 function normalizeLookup(lookup: ResolutionLookup): {
@@ -546,10 +625,9 @@ function inferResolutionFromMarket(
     };
   }
 
-  const priceWinner = winningSideFromFinalPrices(
-    arrayField(market.outcomes),
-    arrayField(market.outcomePrices)
-  );
+  const outcomes = arrayField(market.outcomes);
+  const prices = arrayField(market.outcomePrices);
+  const priceWinner = winningSideFromFinalPrices(outcomes, prices);
 
   if (priceWinner) {
     return {
@@ -559,6 +637,18 @@ function inferResolutionFromMarket(
       conditionId,
       resolvedAt: timestampFromMarket(market),
       reason: "final_outcome_prices"
+    };
+  }
+
+  if (isSplitSettlement(outcomes, prices) && umaResolved(market)) {
+    return {
+      status: "resolved",
+      winningSide: null,
+      settlement: { YES: SPLIT_PRICE, NO: SPLIT_PRICE },
+      slug,
+      conditionId,
+      resolvedAt: timestampFromMarket(market),
+      reason: "split_settlement"
     };
   }
 
@@ -588,10 +678,10 @@ function winningSideFromField(value: unknown): PaperTradeSide | undefined {
   return undefined;
 }
 
-function winningSideFromFinalPrices(
+function finalPricesBySide(
   outcomes: unknown[],
   prices: unknown[]
-): PaperTradeSide | undefined {
+): Record<PaperTradeSide, number> | undefined {
   if (outcomes.length < 2 || prices.length < 2) {
     return undefined;
   }
@@ -614,15 +704,62 @@ function winningSideFromFinalPrices(
     return undefined;
   }
 
-  if (yesPrice >= 0.999 && noPrice <= 0.001) {
+  return { YES: yesPrice, NO: noPrice };
+}
+
+function winningSideFromFinalPrices(
+  outcomes: unknown[],
+  prices: unknown[]
+): PaperTradeSide | undefined {
+  const final = finalPricesBySide(outcomes, prices);
+
+  if (!final) {
+    return undefined;
+  }
+
+  if (final.YES >= 0.999 && final.NO <= 0.001) {
     return "YES";
   }
 
-  if (noPrice >= 0.999 && yesPrice <= 0.001) {
+  if (final.NO >= 0.999 && final.YES <= 0.001) {
     return "NO";
   }
 
   return undefined;
+}
+
+/** Both sides at half a dollar: the market settled 0.5/0.5. */
+function isSplitSettlement(outcomes: unknown[], prices: unknown[]): boolean {
+  const final = finalPricesBySide(outcomes, prices);
+
+  return (
+    final !== undefined &&
+    Math.abs(final.YES - SPLIT_PRICE) <= SPLIT_TOLERANCE &&
+    Math.abs(final.NO - SPLIT_PRICE) <= SPLIT_TOLERANCE
+  );
+}
+
+function umaResolved(market: GammaMarketCandidate): boolean {
+  return (
+    optionalString(market.umaResolutionStatus)?.toLowerCase() === "resolved"
+  );
+}
+
+function settlementPriceForSide(
+  resolution: Extract<MarketResolution, { status: "resolved" }>,
+  side: PaperTradeSide
+): number | null {
+  const fromSettlement = resolution.settlement?.[side];
+
+  if (typeof fromSettlement === "number" && Number.isFinite(fromSettlement)) {
+    return fromSettlement;
+  }
+
+  if (resolution.winningSide === null) {
+    return null;
+  }
+
+  return side === resolution.winningSide ? 1 : 0;
 }
 
 function arrayField(value: unknown): unknown[] {
@@ -685,11 +822,35 @@ function timestampFromMarket(market: GammaMarketCandidate): number | undefined {
     }
 
     if (typeof candidate === "string") {
-      const timestamp = Date.parse(candidate);
+      const timestamp = parseGammaTimestamp(candidate);
 
-      if (Number.isFinite(timestamp)) {
+      if (timestamp !== undefined) {
         return timestamp;
       }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Gamma writes closedTime as "2026-01-05 04:22:25+00": a space instead of the
+ * T and an hour-only offset. Normalised to ISO 8601 before parsing, so the
+ * offset is read as UTC and not guessed.
+ */
+function parseGammaTimestamp(value: string): number | undefined {
+  const normalized = value
+    .trim()
+    .replace(
+      /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})$/,
+      "$1T$2$3:00"
+    );
+
+  for (const candidate of [normalized, value]) {
+    const parsed = Date.parse(candidate);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
     }
   }
 

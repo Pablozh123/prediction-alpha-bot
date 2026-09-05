@@ -165,7 +165,7 @@ describe("runScanCycle", () => {
       warn: vi.fn(),
       error: vi.fn(),
     };
-    const opportunity = makeOpportunity();
+    const opportunity = makeOpportunity(1_000);
 
     await runScanCycle({
       logger,
@@ -217,7 +217,7 @@ describe("runScanCycle", () => {
   });
 
   it("fires the same opportunity again after the paper fire cooldown", async () => {
-    const opportunity = makeOpportunity();
+    const opportunity = makeOpportunity(1_000);
 
     await runScanCycle({
       now: () => 1_000,
@@ -714,13 +714,99 @@ describe("runScanCycle", () => {
   });
 });
 
-function makeOpportunity(): NegRiskBracketOpportunity {
+describe("runScanCycle past expected resolution", () => {
+  beforeEach(() => {
+    closeDb();
+    rmSync(testDbPath, { force: true });
+    initDb(testDbPath);
+  });
+
+  afterEach(() => {
+    closeDb();
+    rmSync(testDbPath, { force: true });
+  });
+
+  it("rejects a basket whose expected resolution time has passed before touching the books", async () => {
+    const execute = vi.fn();
+    const validateOpportunity = vi.fn(async () => makeValidatedOpportunity());
+    const opportunity = {
+      ...makeOpportunity(),
+      expectedResolutionAt: Date.now() - 60 * 1000,
+    };
+
+    const result = await runScanCycle({
+      execute,
+      scanner: async () => [opportunity],
+      withinMarketScanner: async () => [],
+      validateOpportunity,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      opportunities: 1,
+      paperTrades: 0,
+      rejectedOpportunities: 1,
+      rejectionsByReason: { past_expected_resolution: 1 },
+    });
+    expect(validateOpportunity).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "rejected",
+      reason: "past_expected_resolution",
+      gateFailed: 2,
+    });
+    expect(listRecentPaperTrades(10)).toEqual([]);
+  });
+
+  it("rejects a same-market quote on a market past its end and never journals a near miss there", async () => {
+    const execute = vi.fn();
+    const validateWithinMarket = vi.fn(async () => {
+      throw new Error("the books must not be asked");
+    });
+    const past = {
+      ...makeWithinMarket({ askYes: 0.45, askNo: 0.52 }),
+      expectedResolutionAt: Date.now() - 60 * 1000,
+    };
+    const nearMiss = {
+      ...makeWithinMarket({ askYes: 0.5, askNo: 0.52 }),
+      slug: "near-miss-market",
+      expectedResolutionAt: Date.now() - 60 * 1000,
+    };
+
+    const result = await runScanCycle({
+      execute,
+      scanner: async () => [],
+      withinMarketScanner: async () => [past, nearMiss],
+      validateWithinMarket,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      paperTrades: 0,
+      rejectedOpportunities: 1,
+      rejectionsByReason: { past_expected_resolution: 1 },
+    });
+    expect(validateWithinMarket).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    const rows = listRecentOpportunities(10);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      slug: "binary-market",
+      status: "rejected",
+      reason: "past_expected_resolution",
+      gateFailed: 2,
+    });
+  });
+});
+
+function makeOpportunity(nowMs = Date.now()): NegRiskBracketOpportunity {
   return {
     eventSlug: "2026-nba-champion",
     sumYes: 1.06,
     threshold: 1.03,
     expectedEdge: 0.03,
-    expectedResolutionAt: 60 * 60 * 1000,
+    // An hour after the clock the test runs on: a short lock, never past.
+    expectedResolutionAt: nowMs + 60 * 60 * 1000,
     reason: "needs_orderbook_depth_check",
     legs: [
       {

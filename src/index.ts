@@ -422,6 +422,7 @@ export function startBot(options: StartBotOptions = {}): BotHandle {
           resolvedCount: result.resolvedCount,
           unresolvedCount: result.unresolvedCount,
           flaggedCount: result.flaggedCount,
+          closedWithoutFigureCount: result.closedWithoutFigureCount,
           skippedNoSlugCount: result.skippedNoSlugCount,
         }),
       );

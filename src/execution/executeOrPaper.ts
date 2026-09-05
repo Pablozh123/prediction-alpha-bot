@@ -17,7 +17,9 @@ const executeOrPaperInputSchema = z.object({
   // analysis without that join reports its own inputs back to itself.
   opportunityId: z.string().trim().min(1),
   side: z.enum(["YES", "NO"]),
-  entryPrice: z.number().finite().min(0).max(1),
+  // A fill at zero is not a fill: 83 of the 167 May 2026 journal rows were
+  // priced at 0.000 on markets that had already settled.
+  entryPrice: z.number().finite().gt(0).max(1),
   paperSizeUsd: z.number().finite().positive(),
   paperSizeShares: z.number().finite().positive().optional(),
   liveSizeUsd: z.number().finite().positive().optional(),
