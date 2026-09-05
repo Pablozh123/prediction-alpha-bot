@@ -6,18 +6,33 @@ marketintel.dev, Seite Cross-venue). Der Scanner ist die Quelle der
 Definitionen, die Website zeigt sie. Paper-only bleibt unveraendert; nichts in
 diesem Plan beruehrt `executeOrPaper`, Schluessel oder einen Order-Pfad.
 
-## Umsetzungsstand 2026-09-05
+## Umsetzungsstand 2026-09-05, 17:30 UTC
 
-Am selben Tag umgesetzt, auf zwei lokalen Branches (nicht gepusht):
-`feat/taxonomy` im Scanner-Repo (Worktree `prediction-alpha-bot-taxonomy`) und
-`claude/arb-taxonomy` im Terminal-Repo (Worktree
-`prediction-market-terminal-taxonomy`). WP0 bis WP6 sind gebaut und getestet;
-die Definitionen stehen in `docs/ARB_TAXONOMY.md`. Entscheidungen E1, E2, E3,
-E4 und E6 wie vorgeschlagen; E5 (Kalshi-Zugang) bleibt offen. Die drei
-Entwuerfe der Regelpruefung (Somaliland, Le Pen, Pritzker) stehen als
-`pending` in `config/crossVenuePairs.json`, bis ein Mensch sie bestaetigt.
-Der laufende Scanner arbeitet noch mit dem alten Stand; der Wechsel ist
-Merge plus Neustart der Windows-Aufgabe.
+Alles aus Abschnitt 6 ist gebaut, gemergt und in Betrieb; von Abschnitt 7
+bleibt allein E5 offen.
+
+- Scanner (`Pablozh123/prediction-alpha-bot`, alles auf `main`): PR #2
+  (WP0 bis WP6, Feed `arb_scan/2`), PR #3 (E1: Hurdle von 10 auf 5 Prozent),
+  PR #4 (Paper-Aufloesung: Gamma mit `closed=true`, Rotation der
+  Warteschlange, Zeilen ohne Zahl mit Grund, Gate 2 gegen Maerkte nach dem
+  Termin). Die Windows-Aufgabe `PredictionAlphaBotScanner` laeuft seit
+  17:02 UTC auf `main` (72ac255); die erste Aufloesungs-Batch schloss 22
+  Trades mit Zahl und 26 ohne Zahl (`filled_after_close`).
+- Website (`Pablozh123/prediction-market-terminal`): PR #186 (Abschnitt
+  nach 5.2 und 5.3, geteilter Auto-Screen, Paritaetstests, Spec), PR #187
+  (Hurdle 5), PR #189 (Grund je Paper-Zeile). Der Feed geht ueber den
+  taeglichen Daten-Commit live.
+- Paar-Protokoll (WP4): `config/crossVenuePairs.json` ist lokal und nicht
+  versioniert; die Fassung mit sechs Paaren, Regeltexten und Review-Objekten
+  liegt im laufenden Checkout (Somaliland, Le Pen, Pritzker als
+  `pending`-Entwuerfe, Trump und Rubio 2028 `not_equivalent`, Eurovision
+  deaktiviert). Die Form des Review-Objekts steht in
+  `config/crossVenuePairs.example.json`.
+- Entscheidungen: E1 5 Prozent, E2 nein im Messfenster, E3 nur Taxonomie,
+  E4 Spezifikation im Scanner-Repo, E6 sieben Tage. E5 offen: ohne
+  Kalshi-Zugang bleibt Cross-Venue Forschung.
+- Messung nach Abschnitt 8 laeuft ab 2026-09-05 mit Hurdle 5; Auswertung
+  nach dem Fenster.
 
 ## 0. Kurzfassung
 

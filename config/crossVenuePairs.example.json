@@ -1,5 +1,5 @@
 {
-  "_comment": "Fees are priced with the venue curves (schedule 2026-07-30, see docs/CROSS_VENUE_ARB.md). Add feesCents {kalshi, polymarket} in cents per share only to force a flat model; zero is ignored. kalshi.title and polymarket.question enable the question-type check.",
+  "_comment": "Fees are priced with the venue curves (schedule 2026-07-30, see docs/CROSS_VENUE_ARB.md). Add feesCents {kalshi, polymarket} in cents per share only to force a flat model; zero is ignored. kalshi.title and polymarket.question enable the question-type check. Each pair may carry a review object (docs/ARB_TAXONOMY.md, section 4): verdict pending, equivalent or not_equivalent, the seven-point checklist, a note and the source; only equivalent makes a pair hedged, and a pending draft counts as no review.",
   "minNetCents": 0.5,
   "pairs": [
     {
@@ -16,6 +16,22 @@
         "question": "Will the Fed cut rates by 25bps in March?",
         "yesTokenId": "replace-with-polymarket-yes-token-id",
         "noTokenId": "replace-with-polymarket-no-token-id"
+      },
+      "review": {
+        "verdict": "pending",
+        "date": "2026-09-05",
+        "reviewer": "your name",
+        "checklist": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": "0.0 days apart"
+        },
+        "note": "What both rulebooks say, in your words; what differs; what is still open.",
+        "source": "public rule texts read 2026-09-05"
       }
     }
   ]
