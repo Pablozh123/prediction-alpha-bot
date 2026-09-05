@@ -428,7 +428,7 @@ Tabelle 2.1, die Netto-Luecke je Ordergroesse auf der Website (Backlog-Punkt
 
 | Nr | Frage | Vorschlag | Warum |
 |---|---|---|---|
-| E1 | Hurdle-Rate `MIN_ANNUALIZED_NET_PCT` | 10 Prozent als Startwert, im Feed sichtbar | Ueber der gemessenen Funding-Praemie von 3 bis 7 Prozent; darunter ist Carry nur Geldmarkt mit Resolution-Risiko. Die Zahl ist Konfiguration, nicht Wahrheit |
+| E1 | Hurdle-Rate `MIN_ANNUALIZED_NET_PCT` | 10 Prozent als Startwert, am 2026-09-05 auf 5 Prozent gesenkt, im Feed sichtbar | Ueber der gemessenen Funding-Praemie von 3 bis 7 Prozent; darunter ist Carry nur Geldmarkt mit Resolution-Risiko. Die Zahl ist Konfiguration, nicht Wahrheit |
 | E2 | Paper-Feuer fuer `medium` (72 h bis 14 Tage)? | Nein im laufenden Messfenster; nach dem 14-Tage-Fenster neu entscheiden | Das Fenster ist auf `short` vorregistriert; eine Aenderung mittendrin macht die Stichprobe unlesbar |
 | E3 | `neg_risk_long_tail_no_carry` in den Scanner? | In die Taxonomie ja, in den Scanner erst nach WP1 bis 5 | Einzige Klasse mit dokumentiert hoher Trefferquote, aber probabilistisch; braucht eigene Vorregistrierung |
 | E4 | Wer besitzt den Auto-Screen? | Spezifikation im Scanner-Repo, beide Implementierungen bestehen sie; keine Laufzeitabhaengigkeit zwischen den Repos | Beide Prozesse laufen getrennt und muessen allein starten koennen |

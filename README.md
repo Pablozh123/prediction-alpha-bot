@@ -85,7 +85,7 @@ person's rule review. Candidates pass five gates in a fixed order, structure
 before executability before economics before horizon before flow control, and
 are rejected for the most fundamental reason they fail; a basket that is not a
 basket carries no return figures. A clean basket above the hurdle rate
-(`MIN_ANNUALIZED_NET_PCT`, default ten percent a year) that locks capital past
+(`MIN_ANNUALIZED_NET_PCT`, default five percent a year) that locks capital past
 the short window is a `candidate`, carry, and is never paper-fired. Cross-venue
 pairs run a four-stage protocol whose automated screen is specified in
 `config/pair_screen_cases.json` and shared with the website's matcher; a pair is

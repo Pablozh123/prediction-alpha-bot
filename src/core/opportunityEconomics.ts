@@ -32,10 +32,12 @@ export const MS_PER_DAY = 86_400_000;
  * three to seven percent a year (Gebele and Matthes, cited in the sibling
  * project's ertragsquellen note of 2026-07-31); below that a gap is the price
  * of the wait, not an edge. Decision E1 of docs/ARB_TAXONOMY.md: ten percent
- * as the starting value, configurable as MIN_ANNUALIZED_NET_PCT and published
+ * as the starting value, lowered to five on 2026-09-05 so the carry band
+ * between the funding premium and ten percent stays visible during the
+ * measurement window; configurable as MIN_ANNUALIZED_NET_PCT and published
  * in the feed so the number is never implied.
  */
-export const DEFAULT_MIN_ANNUALIZED_NET_PCT = 10;
+export const DEFAULT_MIN_ANNUALIZED_NET_PCT = 5;
 
 /**
  * Threshold comparison for the hurdle. An unknown annualised return never
