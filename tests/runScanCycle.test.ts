@@ -192,11 +192,12 @@ describe("runScanCycle", () => {
       nearMissOpportunities: 0,
       rejectionsByReason: {},
     });
-    expect(listRecentPaperTrades(10)).toHaveLength(2);
-    expect(listRecentPaperTrades(10)[0]).toMatchObject({
-      sizeShares: 1,
-      sizeUsd: 0.4,
-    });
+    // Both legs of the basket share one timestamp; the order the journal
+    // returns them in is not part of the contract, the pair of sizes is.
+    const trades = listRecentPaperTrades(10);
+    expect(trades).toHaveLength(2);
+    expect(trades.map((trade) => trade.sizeShares)).toEqual([1, 1]);
+    expect(trades.map((trade) => trade.sizeUsd).sort((a, b) => a - b)).toEqual([0.35, 0.4]);
     expect(listRecentOpportunities(10)).toHaveLength(1);
     expect(listRecentOpportunities(10)[0]).toMatchObject({
       status: "paper_fired",
