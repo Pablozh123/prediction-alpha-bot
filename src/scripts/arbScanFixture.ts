@@ -51,7 +51,7 @@ export function buildFixtureSnapshot(dbPath: string): ArbScanSnapshot {
       sampleNote:
         "Pre-registered 2026-09-04: 14-day measurement window from go-live; criterion is resolved, candidate-linked paper trades with positive net edge after fees",
       config: {
-        hurdlePct: 10,
+        hurdlePct: 5,
         targetSizeUsd: 20,
         minExecutableDepthUsd: 5,
         cleanBasketMinEdgeBps: 100,

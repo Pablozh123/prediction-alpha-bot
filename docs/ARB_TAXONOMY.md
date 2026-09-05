@@ -132,9 +132,13 @@ All four must hold:
 - **Hurdle:** `annualized_net_pct` at least `MIN_ANNUALIZED_NET_PCT`.
 
 The hurdle is configuration, published in the feed's `config` block. Its
-starting value is ten percent a year (decision E1): the market itself prices
+starting value was ten percent a year (decision E1): the market itself prices
 locked collateral in near-certain contracts at roughly three to seven percent a
-year, and below that a gap is a funding premium, not an edge.
+year, and below that a gap is a funding premium, not an edge. Since 2026-09-05
+the default is five percent, so the carry band between the funding premium and
+ten percent stays visible during the measurement window; a candidate between
+five and ten percent a year sits inside that premium and is shown as carry
+with resolution risk, never as arbitrage.
 
 Ranking inside a class is by net profit in dollars at the executable size
 (`net_profit_usd`), filtered by the hurdle, never by the percentage alone:
@@ -209,7 +213,7 @@ scanner's.
 
 | Id | Decision | Value |
 | --- | --- | --- |
-| E1 | hurdle rate | `MIN_ANNUALIZED_NET_PCT=10`, published in the feed |
+| E1 | hurdle rate | `MIN_ANNUALIZED_NET_PCT=5` since 2026-09-05 (started at 10), published in the feed |
 | E2 | paper-fire for `medium` | no during the 14-day measurement window; revisit after |
 | E3 | `neg_risk_long_tail_no_carry` | in the taxonomy, not in the scanner |
 | E4 | owner of the automated screen | specification in this repo, both implementations pass it, no runtime dependency between repos |

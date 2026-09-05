@@ -68,7 +68,7 @@ describe("arb_scan publisher", () => {
         alive: true,
       },
       config: {
-        hurdle_pct: 10,
+        hurdle_pct: 5,
         target_size_usd: 20,
         short_max_hours: 72,
         medium_max_days: 14,
