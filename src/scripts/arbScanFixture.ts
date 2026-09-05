@@ -246,6 +246,24 @@ function seedJournals(): void {
       resolutionReason: "gamma_resolved_yes",
     });
 
+  // The NO leg of the same chance is still open in the journal: the
+  // scanner's own resolution lookup never reached it. The terminal's
+  // resolution pass (arb_resolutions.json) joins onto rows like this one by
+  // trade id, so the fixture keeps one.
+  recordPaperTrade({
+    strategy: "within_market_fast_arb",
+    slug: "jobless-claims-above-230k-week-of-29-august",
+    question: "Jobless claims above 230k for the week of 29 August?",
+    tokenId: "fix-claims-no",
+    opportunityId: earlier.id,
+    side: "NO",
+    sizeUsd: 10.2,
+    sizeShares: 20,
+    entryPrice: 0.51,
+    arbClass: "within_market_fast_arb",
+    timestamp: FIXTURE_NOW - 3 * DAY + 1,
+  });
+
   // A same-market row that failed at the book: gate 3, negative net edge.
   const thinBook = recordOpportunity({
     strategy: "within_market_fast_arb",
