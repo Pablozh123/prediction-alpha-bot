@@ -46,7 +46,9 @@ type ScanCycleWindowRow = {
 export type DailyScannerSummary = {
   strategy: string;
   rawOpportunities: number;
+  nearMissOpportunities?: number;
   validatedOpportunities: number;
+  candidateOpportunities?: number;
   rejectedOpportunities: number;
   paperTrades: number;
 };
@@ -347,7 +349,9 @@ function loadScannerSummaries(
       SELECT
         strategy,
         SUM(raw_opportunities) AS rawOpportunities,
+        SUM(${columnExists(db, "scanner_runs", "near_miss_opportunities") ? "near_miss_opportunities" : "0"}) AS nearMissOpportunities,
         SUM(validated_opportunities) AS validatedOpportunities,
+        SUM(${columnExists(db, "scanner_runs", "candidate_opportunities") ? "candidate_opportunities" : "0"}) AS candidateOpportunities,
         SUM(rejected_opportunities) AS rejectedOpportunities,
         SUM(paper_trades) AS paperTrades
       FROM scanner_runs
@@ -740,10 +744,12 @@ function renderScannerLines(rows: DailyScannerSummary[]): string {
     return "- none";
   }
 
+  // The same counters the published feed reads from scanner_runs, so the
+  // Telegram line and the website never disagree on what a day held.
   return rows
     .map(
       (row) =>
-        `- ${row.strategy}: raw ${row.rawOpportunities}, validated ${row.validatedOpportunities}, rejected ${row.rejectedOpportunities}, paper ${row.paperTrades}`
+        `- ${row.strategy}: raw ${row.rawOpportunities}, near miss ${row.nearMissOpportunities ?? 0}, validated ${row.validatedOpportunities}, carry ${row.candidateOpportunities ?? 0}, rejected ${row.rejectedOpportunities}, paper ${row.paperTrades}`
     )
     .join("\n");
 }

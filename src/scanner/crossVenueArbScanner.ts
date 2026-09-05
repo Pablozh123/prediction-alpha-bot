@@ -30,6 +30,21 @@ export const DEFAULT_CROSS_VENUE_MIN_NET_CENTS = 0.5;
 
 export type CrossVenue = "kalshi" | "polymarket";
 
+/**
+ * What a person decided after reading both rulebooks (stage 3 of the pair
+ * protocol in docs/ARB_TAXONOMY.md). `pending` is a draft nobody confirmed
+ * and counts as no review for every economic purpose. The checklist keys
+ * are the seven questions of the protocol; a `false` needs a note.
+ */
+export type CrossVenuePairReview = {
+  verdict: "pending" | "equivalent" | "not_equivalent";
+  date?: string;
+  reviewer?: string;
+  note?: string;
+  checklist?: Record<string, boolean | string>;
+  source?: string;
+};
+
 export type CrossVenuePair = {
   id: string;
   title: string;
@@ -37,7 +52,13 @@ export type CrossVenuePair = {
   category?: string;
   enabled?: boolean;
   priority?: boolean;
+  /**
+   * Legacy flag of the 2026-06 pair configs. It was set by the discovery
+   * review, not by a rules review, and no longer promotes a pair: the loader
+   * turns it into a `pending` review so the history stays visible.
+   */
   verified?: boolean;
+  review?: CrossVenuePairReview;
   note?: string;
   expectedResolutionAt?: number | null;
   liquidityDollars?: number | null;
@@ -48,6 +69,10 @@ export type CrossVenuePair = {
     ticker: string;
     /** Kalshi title (+ subtitle); lets the question-type check run. */
     title?: string;
+    /** Kalshi's own resolution time; published next to Polymarket's. */
+    expectedResolutionAt?: number | null;
+    /** Primary and secondary rules, for the excerpt on the pair board. */
+    rulesText?: string;
     liquidityDollars?: number | null;
     volume24h?: number | null;
   };
@@ -57,6 +82,9 @@ export type CrossVenuePair = {
     question?: string;
     yesTokenId: string;
     noTokenId: string;
+    expectedResolutionAt?: number | null;
+    rulesText?: string;
+    resolutionSource?: string;
     liquidityDollars?: number | null;
     volume24h?: number | null;
   };
@@ -699,7 +727,7 @@ export function evaluateCrossVenueArbs(
           feeModel === "flat"
             ? annualizeFlat(maxProfitDollars, economics.capitalUsd, economics.daysToResolution)
             : economics.annualizedPct,
-        ruleMatch: pair.verified === true ? "reviewed" : "unverified",
+        ruleMatch: pair.review?.verdict === "equivalent" ? "reviewed" : "unverified",
         yesLeg: {
           venue: yesBook.venue,
           side: "YES",

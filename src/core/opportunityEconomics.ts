@@ -26,6 +26,33 @@ import {
 export const MS_PER_DAY = 86_400_000;
 
 /**
+ * The annualised net return a structural basket has to clear before its
+ * locked capital counts as a chance rather than as a funding premium. The
+ * market itself prices locked collateral in near-certain contracts at roughly
+ * three to seven percent a year (Gebele and Matthes, cited in the sibling
+ * project's ertragsquellen note of 2026-07-31); below that a gap is the price
+ * of the wait, not an edge. Decision E1 of docs/ARB_TAXONOMY.md: ten percent
+ * as the starting value, configurable as MIN_ANNUALIZED_NET_PCT and published
+ * in the feed so the number is never implied.
+ */
+export const DEFAULT_MIN_ANNUALIZED_NET_PCT = 10;
+
+/**
+ * Threshold comparison for the hurdle. An unknown annualised return never
+ * clears it: an undated basket is not a chance.
+ */
+export function meetsAnnualizedHurdle(
+  annualizedPct: number | null | undefined,
+  hurdlePct: number,
+): boolean {
+  if (annualizedPct === null || annualizedPct === undefined || !Number.isFinite(annualizedPct)) {
+    return false;
+  }
+
+  return round2(annualizedPct) >= round2(hurdlePct);
+}
+
+/**
  * Below this horizon the annualised figure is clamped to one day. A basket
  * that resolves in two hours is not repeatable 4,380 times a year; clamping
  * keeps the number an upper bound on a same-day roll rather than a fantasy.

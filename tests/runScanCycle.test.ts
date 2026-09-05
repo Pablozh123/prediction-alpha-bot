@@ -9,7 +9,11 @@ import { listRecentPaperDedupeSkips } from "../src/execution/paperDedupe.js";
 import { listRecentPaperTrades } from "../src/execution/tradeJournal.js";
 import { runScanCycle } from "../src/scanner/runScanCycle.js";
 import type { NegRiskBracketOpportunity } from "../src/scanner/negRiskBracketScanner.js";
-import type { ValidatedNegRiskOpportunity } from "../src/scanner/opportunityValidator.js";
+import type {
+  ValidatedNegRiskOpportunity,
+  ValidatedWithinMarketOpportunity,
+} from "../src/scanner/opportunityValidator.js";
+import type { WithinMarketArbOpportunity } from "../src/scanner/withinMarketArbScanner.js";
 
 const testDbPath = join("logs", "run-scan-cycle-test.db");
 
@@ -47,6 +51,8 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: {},
     });
     expect(logger.info).toHaveBeenCalledWith(
@@ -80,7 +86,11 @@ describe("runScanCycle", () => {
       capitalUsd: 0.75,
       feeUsd: 0.023375,
       venues: ["polymarket"],
-      ruleMatch: "reviewed",
+      // the automated screen passed; nobody claims a person read rulebooks
+      ruleScreen: "passed",
+      ruleReview: null,
+      ruleMatch: "unverified",
+      gateFailed: null,
       basketSizeShares: 1,
       basketCostUsd: 0.75,
       basketPayoutUsd: 1,
@@ -118,6 +128,8 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: {},
       error: "Gamma unavailable",
     });
@@ -176,6 +188,8 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 1,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: {},
     });
     expect(listRecentPaperTrades(10)).toHaveLength(2);
@@ -225,6 +239,8 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: {},
     });
     expect(listRecentPaperTrades(10)).toHaveLength(4);
@@ -261,6 +277,8 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 1,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: { partial_basket_invalid: 1 },
     });
     expect(execute).not.toHaveBeenCalled();
@@ -293,6 +311,8 @@ describe("runScanCycle", () => {
       paperTrades: 0,
       skippedDuplicates: 0,
       rejectedOpportunities: 1,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: { nested_temporal_basket: 1 },
     });
     expect(execute).not.toHaveBeenCalled();
@@ -409,6 +429,8 @@ describe("runScanCycle", () => {
       paperTrades: 2,
       skippedDuplicates: 0,
       rejectedOpportunities: 0,
+      candidateOpportunities: 0,
+      nearMissOpportunities: 0,
       rejectionsByReason: {},
     });
     expect(execute).toHaveBeenNthCalledWith(
@@ -452,7 +474,148 @@ describe("runScanCycle", () => {
       grossEdgeBps: 309.28,
       netEdgeBps: 53.04,
       capitalUsd: 0.97,
+      // one contract: equivalence by construction
+      ruleScreen: "structural",
       ruleMatch: "reviewed",
+      capitalLockClass: "short",
+    });
+  });
+
+  it("rejects a multi-winner basket for its structure before touching books, horizon or returns", async () => {
+    const validateOpportunity = vi.fn(async () => makeValidatedOpportunity());
+    const runoff: NegRiskBracketOpportunity = {
+      ...makeOpportunity(),
+      eventSlug: "which-candidates-will-advance-to-brazils-presidential-runoff",
+      expectedResolutionAt: Date.now() + 28 * 24 * 60 * 60 * 1000,
+    };
+
+    const result = await runScanCycle({
+      execute: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [runoff],
+      withinMarketScanner: async () => [],
+      validateOpportunity,
+    });
+
+    expect(result).toMatchObject({
+      rejectedOpportunities: 1,
+      rejectionsByReason: { multi_winner_or_qualifier_basket: 1 },
+    });
+    // gate 1 fails before gate 2 runs: no book is fetched for a non-basket
+    expect(validateOpportunity).not.toHaveBeenCalled();
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "rejected",
+      reason: "multi_winner_or_qualifier_basket",
+      gateFailed: 1,
+      annualizedPct: null,
+      netEdgeBps: null,
+      capitalLockClass: "long",
+    });
+  });
+
+  it("rejects an event the venue does not flag as NEG_RISK", async () => {
+    const result = await runScanCycle({
+      execute: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [{ ...makeOpportunity(), negRisk: false }],
+      withinMarketScanner: async () => [],
+      validateOpportunity: async () => makeValidatedOpportunity(),
+    });
+
+    expect(result.rejectionsByReason).toEqual({ not_neg_risk_event: 1 });
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "rejected",
+      reason: "not_neg_risk_event",
+      gateFailed: 1,
+    });
+  });
+
+  it("keeps a clean long-lock basket above the hurdle as a carry candidate instead of firing", async () => {
+    const execute = vi.fn();
+    const longBasket: NegRiskBracketOpportunity = {
+      ...makeOpportunity(),
+      expectedResolutionAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    };
+
+    const result = await runScanCycle({
+      execute,
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [longBasket],
+      withinMarketScanner: async () => [],
+      validateOpportunity: async () => makeValidatedOpportunity(),
+    });
+
+    expect(result).toMatchObject({
+      paperTrades: 0,
+      rejectedOpportunities: 0,
+      candidateOpportunities: 1,
+      rejectionsByReason: {},
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "candidate",
+      reason: "carry_candidate",
+      capitalLockClass: "long",
+      ruleScreen: "passed",
+      netEdgeBps: 3021.67,
+    });
+    expect(listRecentOpportunities(10)[0]?.annualizedPct).toBeGreaterThan(10);
+  });
+
+  it("rejects a clean basket whose annualised net return is below the hurdle", async () => {
+    const execute = vi.fn();
+
+    const result = await runScanCycle({
+      execute,
+      hurdlePct: 1_000_000,
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [makeOpportunity()],
+      withinMarketScanner: async () => [],
+      validateOpportunity: async () => makeValidatedOpportunity(),
+    });
+
+    expect(result.rejectionsByReason).toEqual({ below_annualized_hurdle: 1 });
+    expect(execute).not.toHaveBeenCalled();
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "rejected",
+      reason: "below_annualized_hurdle",
+      gateFailed: 4,
+    });
+  });
+
+  it("counts a watch-band candidate without a book edge as a near miss and journals nothing", async () => {
+    const result = await runScanCycle({
+      execute: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [],
+      withinMarketScanner: async () => [makeWithinMarket({ askYes: 0.5, askNo: 0.505 })],
+      validateWithinMarket: async () =>
+        makeValidatedWithinMarket({ askYes: 0.5, askNo: 0.506, expectedGrossEdge: -0.006 }),
+    });
+
+    expect(result).toMatchObject({
+      opportunities: 1,
+      rejectedOpportunities: 0,
+      nearMissOpportunities: 1,
+      rejectionsByReason: {},
+    });
+    expect(listRecentOpportunities(10)).toEqual([]);
+  });
+
+  it("promotes a watch-band candidate to raw when the book shows an edge", async () => {
+    const result = await runScanCycle({
+      execute: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      scanner: async () => [],
+      withinMarketScanner: async () => [makeWithinMarket({ askYes: 0.5, askNo: 0.505 })],
+      validateWithinMarket: async () =>
+        makeValidatedWithinMarket({ askYes: 0.45, askNo: 0.52, expectedGrossEdge: 0.03 }),
+    });
+
+    expect(result).toMatchObject({ paperTrades: 2, nearMissOpportunities: 0 });
+    expect(listRecentOpportunities(10)[0]).toMatchObject({
+      status: "paper_fired",
+      ruleScreen: "structural",
     });
   });
 
@@ -578,6 +741,60 @@ function makeOpportunity(): NegRiskBracketOpportunity {
         sideToPaperTrade: "NO",
       },
     ],
+  };
+}
+
+function makeWithinMarket(input: { askYes: number; askNo: number }): WithinMarketArbOpportunity {
+  const totalCost = Math.round((input.askYes + input.askNo) * 1_000_000) / 1_000_000;
+
+  return {
+    slug: "binary-market",
+    question: "Will this resolve yes?",
+    askYes: input.askYes,
+    askNo: input.askNo,
+    totalCost,
+    expectedEdge: Math.round((1 - totalCost) * 1_000_000) / 1_000_000,
+    tokenIds: { yes: "yes-token", no: "no-token" },
+    expectedResolutionAt: Date.now() + 60 * 60 * 1000,
+    reason: "yes_no_ask_sum_below_threshold",
+  };
+}
+
+function makeValidatedWithinMarket(input: {
+  askYes: number;
+  askNo: number;
+  expectedGrossEdge: number;
+}): ValidatedWithinMarketOpportunity {
+  const totalCost = Math.round((input.askYes + input.askNo) * 1_000_000) / 1_000_000;
+  const token = (tokenId: string, price: number) => ({
+    tokenId,
+    fillable: true,
+    averageFillPrice: price,
+    maxFillableUsd: 100,
+    depthShares: 10,
+    bestBid: Math.round((price - 0.01) * 1_000_000) / 1_000_000,
+    bestAsk: price,
+    reason: "fillable" as const,
+  });
+
+  return {
+    slug: "binary-market",
+    question: "Will this resolve yes?",
+    tokenIds: { yes: "yes-token", no: "no-token" },
+    askYes: input.askYes,
+    askNo: input.askNo,
+    totalCost,
+    expectedGrossEdge: input.expectedGrossEdge,
+    fillableUsd: 200,
+    minLegDepthUsd: 100,
+    legCount: 2,
+    executableSum: totalCost,
+    feeAdjustedEdge: input.expectedGrossEdge,
+    fillable: true,
+    valid: true,
+    reason: "orderbook_validated",
+    yes: token("yes-token", input.askYes),
+    no: token("no-token", input.askNo),
   };
 }
 

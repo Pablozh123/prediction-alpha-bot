@@ -1248,6 +1248,7 @@ function parsePair(value: unknown): CrossVenuePair {
 
   const canonicalEvent = parseCanonicalEventValue(value.canonicalEvent);
   const canonicalOutcome = parseCanonicalOutcomeValue(value.canonicalOutcome);
+  const review = parsePairReview(value.review, value.verified === true);
 
   return {
     id: stringValue(value.id),
@@ -1257,6 +1258,7 @@ function parsePair(value: unknown): CrossVenuePair {
     enabled: value.enabled === false ? false : true,
     priority: value.priority === true,
     verified: value.verified === true,
+    ...(review ? { review } : {}),
     note: stringValue(value.note) || undefined,
     expectedResolutionAt:
       "expectedResolutionAt" in value
@@ -1272,6 +1274,12 @@ function parsePair(value: unknown): CrossVenuePair {
       ticker: stringValue(value.kalshi.ticker),
       ...(stringValue(value.kalshi.title)
         ? { title: stringValue(value.kalshi.title) }
+        : {}),
+      ...("expectedResolutionAt" in value.kalshi
+        ? { expectedResolutionAt: parseNullableTimestamp(value.kalshi.expectedResolutionAt) }
+        : {}),
+      ...(stringValue(value.kalshi.rulesText)
+        ? { rulesText: stringValue(value.kalshi.rulesText) }
         : {}),
       liquidityDollars:
         "liquidityDollars" in value.kalshi
@@ -1289,6 +1297,15 @@ function parsePair(value: unknown): CrossVenuePair {
         : {}),
       yesTokenId: stringValue(value.polymarket.yesTokenId),
       noTokenId: stringValue(value.polymarket.noTokenId),
+      ...("expectedResolutionAt" in value.polymarket
+        ? { expectedResolutionAt: parseNullableTimestamp(value.polymarket.expectedResolutionAt) }
+        : {}),
+      ...(stringValue(value.polymarket.rulesText)
+        ? { rulesText: stringValue(value.polymarket.rulesText) }
+        : {}),
+      ...(stringValue(value.polymarket.resolutionSource)
+        ? { resolutionSource: stringValue(value.polymarket.resolutionSource) }
+        : {}),
       liquidityDollars:
         "liquidityDollars" in value.polymarket
           ? parseNullableNumber(value.polymarket.liquidityDollars)
@@ -1299,6 +1316,50 @@ function parsePair(value: unknown): CrossVenuePair {
           : undefined,
     },
   };
+}
+
+/**
+ * The rules review of a pair. A legacy `verified: true` without a review
+ * object becomes a `pending` draft: the flag was set by the discovery
+ * review, which reads titles, and never by a person reading both rulebooks.
+ */
+export function parsePairReview(
+  value: unknown,
+  legacyVerified: boolean,
+): CrossVenuePair["review"] {
+  if (isObject(value)) {
+    const verdict = stringValue(value.verdict);
+
+    if (verdict === "pending" || verdict === "equivalent" || verdict === "not_equivalent") {
+      const checklist = isObject(value.checklist)
+        ? Object.fromEntries(
+            Object.entries(value.checklist).filter(
+              (entry): entry is [string, boolean | string] =>
+                typeof entry[1] === "boolean" || typeof entry[1] === "string",
+            ),
+          )
+        : undefined;
+
+      return {
+        verdict,
+        ...(stringValue(value.date) ? { date: stringValue(value.date) } : {}),
+        ...(stringValue(value.reviewer) ? { reviewer: stringValue(value.reviewer) } : {}),
+        ...(stringValue(value.note) ? { note: stringValue(value.note) } : {}),
+        ...(checklist && Object.keys(checklist).length > 0 ? { checklist } : {}),
+        ...(stringValue(value.source) ? { source: stringValue(value.source) } : {}),
+      };
+    }
+  }
+
+  if (legacyVerified) {
+    return {
+      verdict: "pending",
+      note: "legacy verified flag from the discovery review; the rulebooks were not compared",
+      source: "legacy_verified_flag",
+    };
+  }
+
+  return undefined;
 }
 
 function parseCanonicalEventValue(

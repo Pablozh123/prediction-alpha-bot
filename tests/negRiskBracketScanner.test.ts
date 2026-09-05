@@ -21,6 +21,10 @@ describe("scanNegRiskBracketEvents", () => {
         sumYes: 1.06,
         threshold: DEFAULT_NEG_RISK_SUM_THRESHOLD,
         expectedEdge: 0.03,
+        // the markets of the fixture carry the venue flag; the event does not
+        negRisk: true,
+        negRiskAugmented: null,
+        marketCount: 3,
         reason: "needs_orderbook_depth_check",
         legs: [
           {

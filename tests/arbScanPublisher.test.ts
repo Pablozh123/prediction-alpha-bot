@@ -55,7 +55,7 @@ describe("arb_scan publisher", () => {
 
     expect(arbScanSchema.safeParse(snapshot).success).toBe(true);
     expect(snapshot).toMatchObject({
-      schema: "arb_scan/1",
+      schema: "arb_scan/2",
       generated_at: "2026-09-04T12:00:00.000Z",
       generator: { repo: "prediction-alpha-bot", git_sha: "abc123", mode: "paper" },
       disclaimer: "Paper-only research. Not trading advice.",
@@ -64,27 +64,72 @@ describe("arb_scan publisher", () => {
         cycles_24h: 1,
         errors_24h: 0,
         scan_interval_ms: 10_000,
+        configured_interval_ms: 10_000,
         alive: true,
+      },
+      config: {
+        hurdle_pct: 10,
+        target_size_usd: 20,
+        short_max_hours: 72,
+        medium_max_days: 14,
+        fee_model_version: "2026-07-30",
       },
       summary: {
         raw_candidates_24h: 0,
+        near_miss_24h: 0,
         validated_24h: 0,
+        candidates_24h: 0,
         paper_fired_24h: 0,
         open_paper_positions: 0,
         resolved_paper_trades: 0,
         resolved_paper_pnl_usd: null,
       },
       opportunities: [],
+      chances: [],
+      carry_candidates: [],
+      rejected_examples: [],
+      pairs: [],
       paper_positions: [],
       rejections_24h: [],
     });
-    expect(snapshot.strategies.map((strategy) => strategy.id)).toEqual([
-      "neg_risk_bracket_arb",
-      "within_market_fast_arb",
-      "clear_win_watch",
-      "cross_venue_yes_no_arb",
+    expect(snapshot.strategies.map((strategy) => [strategy.id, strategy.class])).toEqual([
+      ["neg_risk_bracket_arb", "neg_risk_no_basket"],
+      ["within_market_fast_arb", "same_market_complement"],
+      ["clear_win_watch", "clear_win_convergence"],
+      ["cross_venue_yes_no_arb", "cross_venue_complement"],
     ]);
     expect(snapshot.summary.sample_note).toContain("no PnL statement");
+    // every word the website may show travels with the file
+    expect(snapshot.vocabulary.classes.map((entry) => entry.id)).toContain("neg_risk_long_tail_no_carry");
+    expect(snapshot.vocabulary.rejection_reasons).toContainEqual({
+      id: "multi_winner_or_qualifier_basket",
+      label: "legs can pay out more than once",
+      gate: 1,
+    });
+    expect(snapshot.vocabulary.rule_review.map((entry) => entry.id)).toEqual([
+      "none",
+      "pending",
+      "equivalent",
+      "not_equivalent",
+    ]);
+  });
+
+  it("reports the cadence the scanner keeps, not only the one it was configured for", () => {
+    for (let index = 0; index < 8; index += 1) {
+      recordScanCycle({
+        success: true,
+        opportunities: 0,
+        paperTrades: 0,
+        skippedDuplicates: 0,
+        rejectedOpportunities: 0,
+        timestamp: NOW - 8 * 16_000 + index * 16_000,
+      });
+    }
+
+    const snapshot = buildArbScanSnapshot({ nowMs: NOW, scanIntervalMs: 10_000, gitSha: "x" });
+
+    expect(snapshot.health.configured_interval_ms).toBe(10_000);
+    expect(snapshot.health.scan_interval_ms).toBe(16_000);
   });
 
   it("marks the feed not alive when the last cycle is older than the stale floor", () => {
@@ -307,8 +352,11 @@ describe("arb_scan publisher", () => {
     expect(snapshot.strategies.find((row) => row.id === "within_market_fast_arb")).toEqual({
       id: "within_market_fast_arb",
       label: "Within-market YES+NO (Polymarket)",
+      class: "same_market_complement",
       raw_24h: 12,
+      near_miss_24h: 0,
       validated_24h: 1,
+      candidates_24h: 0,
       paper_24h: 2,
       top_rejection: null,
     });
@@ -317,10 +365,11 @@ describe("arb_scan publisher", () => {
       validated_24h: 1,
       top_rejection: "question_type_mismatch",
     });
+    // equal counts fall back to gate order: structure before economics before flow
     expect(snapshot.rejections_24h).toEqual([
-      { reason: "non_positive_executable_edge", count: 1 },
-      { reason: "duplicate_within_cooldown", count: 1 },
-      { reason: "question_type_mismatch", count: 1 },
+      { reason: "question_type_mismatch", label: "titles ask different questions", gate: 1, count: 1 },
+      { reason: "non_positive_executable_edge", label: "edge gone at executable prices", gate: 3, count: 1 },
+      { reason: "duplicate_within_cooldown", label: "same basket fired within the cooldown", gate: 5, count: 1 },
     ]);
 
     expect(snapshot.opportunities.map((row) => [row.id, row.status])).toEqual([
@@ -329,6 +378,22 @@ describe("arb_scan publisher", () => {
       expect.arrayContaining(["rejected"]),
       expect.arrayContaining(["rejected"]),
     ]);
+    expect(snapshot.chances.map((row) => row.id)).toEqual([firedAgain.id, crossVenue.id]);
+    expect(snapshot.carry_candidates).toEqual([]);
+    expect(snapshot.rejected_examples.map((entry) => [entry.reason, entry.count_24h, entry.examples.length])).toEqual([
+      ["question_type_mismatch", 1, 1],
+      ["non_positive_executable_edge", 1, 1],
+      ["duplicate_within_cooldown", 1, 0],
+    ]);
+    // a row that failed gate 1 carries no return figures, whatever the journal holds
+    expect(snapshot.rejected_examples[0]?.examples[0]).toMatchObject({
+      gate_failed: 1,
+      gross_edge_bps: null,
+      executable_net_edge_bps: null,
+      annualized_pct: null,
+      rule_screen: "different_question",
+      rule_review: "none",
+    });
     expect(snapshot.opportunities).not.toContainEqual(
       expect.objectContaining({ id: fired.id }),
     );
@@ -345,7 +410,12 @@ describe("arb_scan publisher", () => {
       annualized_pct: 96.8,
       status: "validated",
       rejection_reason: null,
+      gate_failed: null,
+      class: "same_market_complement",
       rule_match: "reviewed",
+      rule_screen: "structural",
+      rule_review: null,
+      hurdle_met: true,
       first_seen_at: "2026-09-04T10:00:00.000Z",
       last_seen_at: "2026-09-04T11:00:00.000Z",
       open_seconds: 3600,
@@ -356,9 +426,13 @@ describe("arb_scan publisher", () => {
     });
     expect(snapshot.opportunities[1]).toMatchObject({
       strategy: "cross_venue_yes_no_arb",
+      class: "cross_venue_complement",
       venues: ["kalshi", "polymarket"],
       annualized_pct: 1.35,
+      hurdle_met: false,
       rule_match: "unverified",
+      rule_screen: "passed",
+      rule_review: "none",
       legs: [],
     });
     expect(

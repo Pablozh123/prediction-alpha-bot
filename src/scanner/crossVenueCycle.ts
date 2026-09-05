@@ -1,9 +1,25 @@
 import { existsSync } from "node:fs";
-import type { RejectionReason } from "../core/rejectionReasons.js";
+import {
+  DEFAULT_MIN_ANNUALIZED_NET_PCT,
+  meetsAnnualizedHurdle,
+} from "../core/opportunityEconomics.js";
+import { gateForReason, type RejectionReason } from "../core/rejectionReasons.js";
+import {
+  legacyRuleMatch,
+  rejectionFromRuleScreen,
+  ruleScreenFromRejection,
+  type RuleReviewStatus,
+  type RuleScreenStatus,
+} from "../core/taxonomy.js";
+import { screenTitlePair } from "./crossVenueQuestionMatch.js";
 import type { ExecutionRoleMode } from "../core/venueFees.js";
 import {
+  upsertCrossVenuePair,
+  type CrossVenuePairReviewRecord,
+} from "../execution/crossVenuePairJournal.js";
+import {
   recordOpportunity,
-  type RuleMatchStatus,
+  type OpportunityStatus,
 } from "../execution/opportunityJournal.js";
 import { recordOpportunityLegs } from "../execution/opportunityLegJournal.js";
 import { recordScannerRun } from "../execution/scannerRunJournal.js";
@@ -32,10 +48,17 @@ import type { ScanCycleLogger } from "./runScanCycle.js";
  * `crossvenue:scan` stays the explicit CLI with reports and dashboards; this is
  * the lean cycle the long-running scanner calls every few minutes. It reads
  * the same pair config, runs the same discovery and the same scanner, and then
- * journals every outcome - validated, no edge, mismatched - so the published
- * feed can show a cross-venue rejection next to a within-market one. It never
- * paper-fires: a cross-venue basket on an unverified pair is two open bets,
- * not a hedge, and the rule comparison is a human task.
+ * journals every outcome - validated, candidate, no edge, mismatched - so the
+ * published feed can show a cross-venue rejection next to a within-market one.
+ *
+ * The pair protocol of docs/ARB_TAXONOMY.md decides what a positive number
+ * means. The automated screen (gate 1) only says whether two titles ask the
+ * same question. A person's review of both rulebooks decides whether the
+ * basket is hedged: `equivalent` makes a positive, above-hurdle pair a
+ * validated chance, `not_equivalent` rejects it at gate 1 with no return
+ * figures, and everything else leaves it a candidate. The lane never
+ * paper-fires (decision E2): a cross-venue basket on an unreviewed pair is
+ * two open bets, not a hedge.
  */
 
 const DEFAULT_MISMATCH_ROWS_PER_CYCLE = 25;
@@ -45,6 +68,8 @@ const MISMATCH_STATUSES: ReadonlySet<CrossVenueMatchCandidatePreview["status"]> 
   "resolution_time_mismatch",
   "resolution_terms_mismatch",
 ]);
+
+export const CROSS_VENUE_CANDIDATE_REASON = "cross_venue_candidate";
 
 export type CrossVenueCycleOptions = {
   pairsPath?: string;
@@ -59,6 +84,8 @@ export type CrossVenueCycleOptions = {
   ) => Promise<CrossVenueScanResult>;
   roleMode?: ExecutionRoleMode;
   minNetCents?: number;
+  /** Annualised net return in percent a pair must clear (decision E1). */
+  hurdlePct?: number;
   orderbookCache?: LiveOrderBookCache;
   orderbookCacheMaxAgeMs?: number;
   maxMismatchRowsPerCycle?: number;
@@ -69,11 +96,24 @@ export type CrossVenueCycleOptions = {
 export type CrossVenueCycleResult = {
   success: boolean;
   pairsScanned: number;
+  /** Reviewed-equivalent pairs with a net edge above the hurdle. */
   opportunities: number;
+  /** Net edge above the hurdle, rulebooks not yet confirmed by a person. */
+  candidates: number;
   noEdge: number;
   rejectedPairs: number;
   mismatchCandidates: number;
   error?: string;
+};
+
+type PairOutcome = {
+  status: OpportunityStatus | "no_edge";
+  ruleScreen: RuleScreenStatus | null;
+  ruleScreenDetail: string | null;
+  grossCents: number | null;
+  netCents: number | null;
+  annualizedPct: number | null;
+  executableSize: number | null;
 };
 
 export async function runCrossVenueCycle(
@@ -84,6 +124,7 @@ export async function runCrossVenueCycle(
   const logger = options.logger;
   const discover = options.discover ?? discoverCrossVenuePairsWithDiagnostics;
   const scanPairs = options.scanPairs ?? scanCrossVenuePairs;
+  const hurdlePct = options.hurdlePct ?? DEFAULT_MIN_ANNUALIZED_NET_PCT;
 
   try {
     const config =
@@ -96,6 +137,7 @@ export async function runCrossVenueCycle(
     const disabledIds = new Set(
       (config.pairs ?? []).filter((pair) => pair.enabled === false).map((pair) => pair.id),
     );
+    const configuredIds = new Set(configuredPairs.map((pair) => pair.id));
     let pairs: CrossVenuePair[] = configuredPairs;
     let discovery: CrossVenueDiscoveryResult | null = null;
 
@@ -111,10 +153,75 @@ export async function runCrossVenueCycle(
       }
     }
 
+    const pairsById = new Map(pairs.map((pair) => [pair.id, pair]));
+    const outcomes = new Map<string, PairOutcome>();
+    const nowMs = now();
+    let validated = 0;
+    let candidates = 0;
+    let rejected = 0;
+
+    // Gate 1 before any book is read. A person's not_equivalent verdict
+    // rejects the pair outright; a failed title-and-date screen rejects it
+    // unless a person found the rulebooks equivalent (the review outranks
+    // the screen, its checklist covers the dates). Both are journaled with
+    // no return figures, and neither costs an orderbook call.
+    const screens = new Map<string, ReturnType<typeof screenTitlePair>>();
+    const toScan: CrossVenuePair[] = [];
+
+    for (const pair of pairs) {
+      const review = reviewStatusOf(pair);
+      const screen = screenTitlePair({
+        polymarketTitle: pair.polymarket.question ?? pair.title,
+        kalshiTitle: pair.kalshi.title ?? pair.title,
+        kalshiTicker: pair.kalshi.ticker,
+        polymarketEnd: pair.polymarket.expectedResolutionAt ?? null,
+        kalshiEnd: pair.kalshi.expectedResolutionAt ?? null,
+      });
+
+      screens.set(pair.id, screen);
+
+      if (review === "not_equivalent") {
+        recordCrossVenueRejection({
+          pair,
+          pairId: pair.id,
+          reason: "rule_review_not_equivalent",
+          rawEdge: null,
+          executableEdge: null,
+          ruleScreen: screenStatusOf(screen.verdict),
+          ruleReview: review,
+          nowMs,
+        });
+        rejected += 1;
+        outcomes.set(pair.id, emptyOutcome("rejected", screenStatusOf(screen.verdict), screen.reasons.join("; ") || null));
+        continue;
+      }
+
+      const screenRejection = rejectionFromRuleScreen(screenStatusOf(screen.verdict));
+
+      if (screenRejection && review !== "equivalent") {
+        recordCrossVenueRejection({
+          pair,
+          pairId: pair.id,
+          reason: screenRejection,
+          rawEdge: null,
+          executableEdge: null,
+          ruleScreen: screenStatusOf(screen.verdict),
+          ruleReview: review,
+          nowMs,
+          detail: screen.reasons.join("; "),
+        });
+        rejected += 1;
+        outcomes.set(pair.id, emptyOutcome("rejected", screenStatusOf(screen.verdict), screen.reasons.join("; ") || null));
+        continue;
+      }
+
+      toScan.push(pair);
+    }
+
     const result =
-      pairs.length === 0
+      toScan.length === 0
         ? null
-        : await scanPairs(pairs, {
+        : await scanPairs(toScan, {
             feesCents: config.feesCents,
             minNetCents: options.minNetCents ?? config.minNetCents,
             orderbookCache: options.orderbookCache,
@@ -124,14 +231,54 @@ export async function runCrossVenueCycle(
             warn: (message) => logger?.warn(message),
           });
 
-    const pairsById = new Map(pairs.map((pair) => [pair.id, pair]));
-    const nowMs = now();
-    let validated = 0;
-    let rejected = 0;
-
     for (const opportunity of result?.opportunities ?? []) {
-      journalCrossVenueOpportunity(opportunity, pairsById.get(opportunity.pairId), nowMs);
-      validated += 1;
+      const pair = pairsById.get(opportunity.pairId);
+      const review = reviewStatusOf(pair);
+
+      if (review === "not_equivalent") {
+        // A test double can return an opportunity for a pair the pre-screen
+        // never scanned; the verdict still holds.
+        recordCrossVenueRejection({
+          pair,
+          pairId: opportunity.pairId,
+          reason: "rule_review_not_equivalent",
+          rawEdge: null,
+          executableEdge: null,
+          ruleScreen: "passed",
+          ruleReview: review,
+          nowMs,
+        });
+        rejected += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("rejected", "passed", null, opportunity));
+        continue;
+      }
+
+      if (!meetsAnnualizedHurdle(opportunity.annualizedPct, hurdlePct)) {
+        journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+          status: "rejected",
+          reason: "below_annualized_hurdle",
+          ruleReview: review,
+        });
+        rejected += 1;
+        outcomes.set(opportunity.pairId, outcomeOf("rejected", "passed", null, opportunity));
+        continue;
+      }
+
+      const status: OpportunityStatus = review === "equivalent" ? "validated" : "candidate";
+
+      journalCrossVenueOpportunity(opportunity, pair, nowMs, {
+        status,
+        reason: status === "validated" ? opportunity.reason : CROSS_VENUE_CANDIDATE_REASON,
+        ruleReview: review,
+      });
+
+      if (status === "validated") {
+        validated += 1;
+      } else {
+        candidates += 1;
+      }
+
+      outcomes.set(opportunity.pairId, outcomeOf(status, "passed", null, opportunity));
     }
 
     for (const noEdge of result?.noEdge ?? []) {
@@ -143,15 +290,26 @@ export async function runCrossVenueCycle(
         reason: noEdge.reason,
         rawEdge: noEdge.grossCents / 100,
         executableEdge: noEdge.netCents / 100,
-        ruleMatch: pair?.verified ? "reviewed" : "unverified",
+        ruleScreen: "passed",
+        ruleReview: reviewStatusOf(pair),
         nowMs,
       });
       rejected += 1;
+      outcomes.set(noEdge.pairId, {
+        status: "no_edge",
+        ruleScreen: "passed",
+        ruleScreenDetail: null,
+        grossCents: noEdge.grossCents,
+        netCents: noEdge.netCents,
+        annualizedPct: null,
+        executableSize: null,
+      });
     }
 
     for (const rejection of result?.rejected ?? []) {
       const pair = pairsById.get(rejection.pairId);
       const reason = rejection.reason as RejectionReason;
+      const ruleScreen = ruleScreenFromRejection(reason);
 
       recordCrossVenueRejection({
         pair,
@@ -159,11 +317,56 @@ export async function runCrossVenueCycle(
         reason,
         rawEdge: null,
         executableEdge: null,
-        ruleMatch: reason.startsWith("question_") ? "mismatch" : null,
+        ruleScreen,
+        ruleReview: reviewStatusOf(pair),
         nowMs,
         detail: rejection.detail,
       });
       rejected += 1;
+      outcomes.set(rejection.pairId, {
+        status: "rejected",
+        ruleScreen,
+        ruleScreenDetail: rejection.detail ?? null,
+        grossCents: null,
+        netCents: null,
+        annualizedPct: null,
+        executableSize: null,
+      });
+    }
+
+    // The pair board: one row per pair the lane looked at, with both
+    // titles, both resolution times, the screen, the review and the last
+    // numbers. A pair rejected at gate 1 keeps its numbers here as
+    // information; its opportunity row carries none.
+    for (const pair of pairs) {
+      const outcome = outcomes.get(pair.id);
+      const screen = screens.get(pair.id);
+
+      upsertCrossVenuePair({
+        pairId: pair.id,
+        title: pair.title,
+        kalshiTicker: pair.kalshi.ticker,
+        polymarketSlug: pair.polymarket.slug,
+        kalshiTitle: pair.kalshi.title ?? null,
+        polymarketQuestion: pair.polymarket.question ?? null,
+        category: pair.category ?? null,
+        source: configuredIds.has(pair.id) ? "config" : "discovery",
+        resolutionAtKalshi: pair.kalshi.expectedResolutionAt ?? null,
+        resolutionAtPolymarket: pair.polymarket.expectedResolutionAt ?? null,
+        ruleScreen: outcome?.ruleScreen ?? (screen ? screenStatusOf(screen.verdict) : null),
+        ruleScreenDetail:
+          outcome?.ruleScreenDetail ?? (screen && screen.reasons.length > 0 ? screen.reasons.join("; ") : null),
+        ruleReview: reviewStatusOf(pair),
+        review: reviewRecordOf(pair),
+        kalshiRulesExcerpt: pair.kalshi.rulesText ?? null,
+        polymarketRulesExcerpt: combineRules(pair.polymarket.rulesText, pair.polymarket.resolutionSource),
+        lastGrossCents: outcome?.grossCents ?? null,
+        lastNetCents: outcome?.netCents ?? null,
+        lastAnnualizedPct: outcome?.annualizedPct ?? null,
+        lastExecutableSize: outcome?.executableSize ?? null,
+        lastStatus: outcome?.status ?? null,
+        timestamp: nowMs,
+      });
     }
 
     const mismatchCandidates = (discovery?.candidatePreview ?? [])
@@ -171,6 +374,8 @@ export async function runCrossVenueCycle(
       .slice(0, options.maxMismatchRowsPerCycle ?? DEFAULT_MISMATCH_ROWS_PER_CYCLE);
 
     for (const candidate of mismatchCandidates) {
+      const ruleScreen = ruleScreenFromRejection(candidate.status);
+
       recordOpportunity({
         strategy: CROSS_VENUE_ARB_STRATEGY,
         slug: candidate.polymarketSlug,
@@ -180,10 +385,29 @@ export async function runCrossVenueCycle(
         rawEdge: null,
         status: "rejected",
         reason: candidate.status,
-        ruleMatch: "mismatch",
+        gateFailed: gateForReason(candidate.status),
+        ruleMatch: legacyRuleMatch(ruleScreen, "none"),
+        ruleScreen,
+        ruleReview: "none",
         tokenIds: [candidate.kalshiTicker, candidate.polymarketSlug],
         timestamp: nowMs,
         ...capitalLockTelemetry(candidate.expectedResolutionAt ?? null, nowMs),
+      });
+      upsertCrossVenuePair({
+        pairId: `${candidate.kalshiTicker}|${candidate.polymarketSlug}`,
+        title: candidate.polymarketQuestion || candidate.kalshiTitle,
+        kalshiTicker: candidate.kalshiTicker,
+        polymarketSlug: candidate.polymarketSlug,
+        kalshiTitle: [candidate.kalshiTitle, candidate.kalshiSubtitle].filter(Boolean).join(" "),
+        polymarketQuestion: candidate.polymarketQuestion,
+        category: candidate.category ?? null,
+        source: "discovery",
+        resolutionAtPolymarket: candidate.expectedResolutionAt ?? null,
+        ruleScreen,
+        ruleScreenDetail: candidate.matchReason,
+        ruleReview: "none",
+        lastStatus: "rejected",
+        timestamp: nowMs,
       });
       rejected += 1;
     }
@@ -193,6 +417,7 @@ export async function runCrossVenueCycle(
       timestamp: startedAt,
       rawOpportunities: pairs.length + mismatchCandidates.length,
       validatedOpportunities: validated,
+      candidateOpportunities: candidates,
       rejectedOpportunities: rejected,
       dedupeSkips: 0,
       paperTrades: 0,
@@ -200,9 +425,9 @@ export async function runCrossVenueCycle(
     });
 
     logger?.info(
-      `Cross-venue cycle: ${pairs.length} pair(s) scanned, ${validated} validated, ${
+      `Cross-venue cycle: ${pairs.length} pair(s), ${toScan.length} scanned against books, ${validated} validated, ${candidates} candidate(s), ${
         result?.noEdge.length ?? 0
-      } without edge, ${result?.rejected.length ?? 0} rejected, ${
+      } without edge, ${rejected} rejected, ${
         mismatchCandidates.length
       } mismatch candidate(s).`,
     );
@@ -211,6 +436,7 @@ export async function runCrossVenueCycle(
       success: true,
       pairsScanned: pairs.length,
       opportunities: validated,
+      candidates,
       noEdge: result?.noEdge.length ?? 0,
       rejectedPairs: result?.rejected.length ?? 0,
       mismatchCandidates: mismatchCandidates.length,
@@ -231,6 +457,7 @@ export async function runCrossVenueCycle(
       success: false,
       pairsScanned: 0,
       opportunities: 0,
+      candidates: 0,
       noEdge: 0,
       rejectedPairs: 0,
       mismatchCandidates: 0,
@@ -239,10 +466,74 @@ export async function runCrossVenueCycle(
   }
 }
 
+/** The review a person recorded in the pair config, or `none`. */
+export function reviewStatusOf(pair: CrossVenuePair | undefined): RuleReviewStatus {
+  const verdict = pair?.review?.verdict;
+
+  return verdict === "equivalent" || verdict === "not_equivalent" || verdict === "pending"
+    ? verdict
+    : "none";
+}
+
+function reviewRecordOf(pair: CrossVenuePair | undefined): CrossVenuePairReviewRecord | null {
+  return pair?.review ? { ...pair.review } : null;
+}
+
+/** The screen's neutral verdict as the journal's rule_screen status. */
+function screenStatusOf(verdict: ReturnType<typeof screenTitlePair>["verdict"]): RuleScreenStatus {
+  return verdict;
+}
+
+function emptyOutcome(
+  status: OpportunityStatus,
+  ruleScreen: RuleScreenStatus | null,
+  detail: string | null,
+): PairOutcome {
+  return {
+    status,
+    ruleScreen,
+    ruleScreenDetail: detail,
+    grossCents: null,
+    netCents: null,
+    annualizedPct: null,
+    executableSize: null,
+  };
+}
+
+function combineRules(rules: string | undefined, source: string | undefined): string | null {
+  const parts = [rules, source ? `Resolution source: ${source}` : ""].filter(
+    (part): part is string => Boolean(part && part.trim()),
+  );
+
+  return parts.length === 0 ? null : parts.join(" ");
+}
+
+function outcomeOf(
+  status: OpportunityStatus,
+  ruleScreen: RuleScreenStatus,
+  detail: string | null,
+  opportunity: CrossVenueArbOpportunity,
+): PairOutcome {
+  return {
+    status,
+    ruleScreen,
+    ruleScreenDetail: detail,
+    grossCents: opportunity.grossCents,
+    netCents: opportunity.netCents,
+    annualizedPct: opportunity.annualizedPct,
+    executableSize: opportunity.executableSize,
+  };
+}
+
 function journalCrossVenueOpportunity(
   opportunity: CrossVenueArbOpportunity,
   pair: CrossVenuePair | undefined,
   nowMs: number,
+  outcome: {
+    status: OpportunityStatus;
+    reason: string;
+    ruleReview: RuleReviewStatus;
+  },
 ): void {
   const depthUsd = roundUsd(opportunity.executableSize * opportunity.totalTopOfBookCost);
   const record = recordOpportunity({
@@ -274,10 +565,16 @@ function journalCrossVenueOpportunity(
     feeUsd: roundUsd(opportunity.yesLeg.feeUsd + opportunity.noLeg.feeUsd),
     capitalUsd: opportunity.capitalUsd,
     depthUsd,
+    netProfitUsd: opportunity.maxProfitDollars,
     annualizedPct: opportunity.annualizedPct,
-    ruleMatch: opportunity.ruleMatch,
-    status: "validated",
-    reason: opportunity.reason,
+    ruleMatch: legacyRuleMatch("passed", outcome.ruleReview),
+    ruleScreen: "passed",
+    ruleReview: outcome.ruleReview,
+    gateFailed: outcome.status === "rejected" ? gateForReason(outcome.reason) : null,
+    resolutionAtKalshi: pair?.kalshi.expectedResolutionAt ?? null,
+    resolutionAtPolymarket: pair?.polymarket.expectedResolutionAt ?? null,
+    status: outcome.status,
+    reason: outcome.reason,
     tokenIds: [opportunity.yesLeg.identifier, opportunity.noLeg.identifier],
     timestamp: nowMs,
     ...capitalLockTelemetry(opportunity.expectedResolutionAt ?? null, nowMs),
@@ -315,7 +612,8 @@ function recordCrossVenueRejection(input: {
   reason: RejectionReason;
   rawEdge: number | null;
   executableEdge: number | null;
-  ruleMatch: RuleMatchStatus | null;
+  ruleScreen: RuleScreenStatus | null;
+  ruleReview: RuleReviewStatus;
   nowMs: number;
   detail?: string;
 }): void {
@@ -334,7 +632,12 @@ function recordCrossVenueRejection(input: {
     legCount: 2,
     status: "rejected",
     reason: input.reason,
-    ruleMatch: input.ruleMatch,
+    gateFailed: gateForReason(input.reason),
+    ruleMatch: legacyRuleMatch(input.ruleScreen, input.ruleReview),
+    ruleScreen: input.ruleScreen,
+    ruleReview: input.ruleReview,
+    resolutionAtKalshi: pair?.kalshi.expectedResolutionAt ?? null,
+    resolutionAtPolymarket: pair?.polymarket.expectedResolutionAt ?? null,
     tokenIds: pair ? [pair.kalshi.ticker, pair.polymarket.slug] : [input.pairId],
     timestamp: input.nowMs,
     ...capitalLockTelemetry(pair?.expectedResolutionAt ?? null, input.nowMs),
