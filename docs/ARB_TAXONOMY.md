@@ -186,9 +186,13 @@ pays on the inauguration, Polymarket on the election call by AP, Fox and NBC;
 study of 2026-07-31). Somaliland, Le Pen 2027 and Pritzker 2028 carry drafted
 checklists as `pending`. The Eurovision Sofia pair is retired.
 
-Open (decision E5): whether Kalshi is tradable for the operator at all. Until
-that is settled, cross-venue stays research on the website and unfired in the
-scanner.
+Decision E5, 2026-09-05: the operator can trade on Kalshi. A pair a person
+found equivalent is therefore a chance like any other basket: inside the
+short window it paper-fires both legs, the Kalshi leg journaled under the
+slug `kalshi:<ticker>` and settled against Kalshi's market result, the
+Polymarket leg under its slug and CLOB token; beyond the short window it is a
+carry candidate. Without an equivalent review nothing fires, whatever the
+numbers say.
 
 ## 5. What the feed publishes
 
@@ -217,7 +221,7 @@ scanner's.
 | E2 | paper-fire for `medium` | no during the 14-day measurement window; revisit after |
 | E3 | `neg_risk_long_tail_no_carry` | in the taxonomy, not in the scanner |
 | E4 | owner of the automated screen | specification in this repo, both implementations pass it, no runtime dependency between repos |
-| E5 | Kalshi access for the operator | open; cross-venue stays research until settled |
+| E5 | Kalshi access for the operator | yes (2026-09-05); an equivalent pair paper-fires inside the short window and is carry beyond it |
 | E6 | resolution date tolerance | 7 days |
 
 ## 7. Measurement

@@ -8,8 +8,8 @@ diesem Plan beruehrt `executeOrPaper`, Schluessel oder einen Order-Pfad.
 
 ## Umsetzungsstand 2026-09-05, 17:30 UTC
 
-Alles aus Abschnitt 6 ist gebaut, gemergt und in Betrieb; von Abschnitt 7
-bleibt allein E5 offen.
+Alles aus Abschnitt 6 ist gebaut, gemergt und in Betrieb; Abschnitt 7 ist
+vollstaendig entschieden.
 
 - Scanner (`Pablozh123/prediction-alpha-bot`, alles auf `main`): PR #2
   (WP0 bis WP6, Feed `arb_scan/2`), PR #3 (E1: Hurdle von 10 auf 5 Prozent),
@@ -29,8 +29,10 @@ bleibt allein E5 offen.
   deaktiviert). Die Form des Review-Objekts steht in
   `config/crossVenuePairs.example.json`.
 - Entscheidungen: E1 5 Prozent, E2 nein im Messfenster, E3 nur Taxonomie,
-  E4 Spezifikation im Scanner-Repo, E6 sieben Tage. E5 offen: ohne
-  Kalshi-Zugang bleibt Cross-Venue Forschung.
+  E4 Spezifikation im Scanner-Repo, E6 sieben Tage, E5 ja (2026-09-05):
+  Kalshi ist handelbar, ein gleichwertig geprueftes Paar feuert im kurzen
+  Fenster paper, das Kalshi-Bein wird gegen das Kalshi-Marktergebnis
+  aufgeloest.
 - Messung nach Abschnitt 8 laeuft ab 2026-09-05 mit Hurdle 5; Auswertung
   nach dem Fenster.
 
@@ -359,9 +361,11 @@ Information. "Gehedgt" und "Chance" gibt es nur bei `equivalent`. Kapital
 sind beide Beine voll, kein Netting; Laufzeit ist der spaetere Termin;
 Fenster kommt aus den Recordern.
 
-Offen (E5): ob Kalshi fuer den Betreiber ueberhaupt handelbar ist (Zugang,
-KYC, Land). Solange das nicht geklaert ist, bleibt Cross-Venue auf der Seite
-Forschung und im Scanner ohne Paper-Feuer.
+E5, entschieden 2026-09-05: Kalshi ist fuer die Betreiberin handelbar. Damit
+gilt die Taxonomie auch hier: ein als gleichwertig geprueftes Paar mit kurzer
+Bindung feuert im Scanner paper (beide Beine, das Kalshi-Bein unter
+`kalshi:<ticker>` und gegen das Kalshi-Marktergebnis aufgeloest), jenseits des
+kurzen Fensters ist es Carry, und ohne Review feuert nichts.
 
 ## 5. Darstellung
 
@@ -447,7 +451,7 @@ Tabelle 2.1, die Netto-Luecke je Ordergroesse auf der Website (Backlog-Punkt
 | E2 | Paper-Feuer fuer `medium` (72 h bis 14 Tage)? | Nein im laufenden Messfenster; nach dem 14-Tage-Fenster neu entscheiden | Das Fenster ist auf `short` vorregistriert; eine Aenderung mittendrin macht die Stichprobe unlesbar |
 | E3 | `neg_risk_long_tail_no_carry` in den Scanner? | In die Taxonomie ja, in den Scanner erst nach WP1 bis 5 | Einzige Klasse mit dokumentiert hoher Trefferquote, aber probabilistisch; braucht eigene Vorregistrierung |
 | E4 | Wer besitzt den Auto-Screen? | Spezifikation im Scanner-Repo, beide Implementierungen bestehen sie; keine Laufzeitabhaengigkeit zwischen den Repos | Beide Prozesse laufen getrennt und muessen allein starten koennen |
-| E5 | Kalshi-Zugang fuer den Betreiber | Vor WP4 klaeren | Ohne Zugang bleibt Cross-Venue Forschung; das aendert die Darstellung ("was ein US-Trader haette") |
+| E5 | Kalshi-Zugang fuer den Betreiber | Ja, entschieden 2026-09-05: ein gleichwertig geprueftes Paar feuert im kurzen Fenster paper, sonst Carry | Ohne Zugang waere Cross-Venue Forschung geblieben; mit Zugang gilt die Taxonomie auch dort |
 | E6 | Termin-Toleranz im Screen | 7 Tage | Der Fed-Fall (September gegen Dezember) faellt bei 14 Tagen nicht sicher |
 
 ## 8. Messung: was den Plan bestaetigt oder widerlegt

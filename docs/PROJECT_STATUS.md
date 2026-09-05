@@ -175,8 +175,13 @@ Ausgewertet 14 Tage nach Inbetriebnahme des Feeds `arb_scan/2`; die Kriterien
 stehen in ARB_TAXONOMY.md, Abschnitt 7. Vorab wird nichts behauptet. Die
 Cross-Venue-Paare stehen nach dem Protokoll: Trump und Rubio 2028
 `not_equivalent` (Studie 2026-07-31), Somaliland, Le Pen und Pritzker als
-Entwuerfe `pending`, Eurovision Sofia stillgelegt. Ob Kalshi fuer den Betreiber
-handelbar ist, bleibt offen (E5).
+Entwuerfe `pending`, Eurovision Sofia stillgelegt. Kalshi ist fuer die
+Betreiberin handelbar (E5, entschieden 2026-09-05): ein als gleichwertig
+geprueftes Paar feuert innerhalb des kurzen Fensters paper, beide Beine ins
+Journal (das Kalshi-Bein unter `kalshi:<ticker>`, aufgeloest gegen das
+Kalshi-Marktergebnis), jenseits des Fensters ist es Carry. Vorregistrierung
+fuer diese Klasse: dasselbe Kriterium wie fuer die kurzen Klassen; das Fenster
+beginnt mit dem ersten Feuer, nicht mit der Entscheidung.
 
 ## Paper-Aufloesung 2026-09-05
 

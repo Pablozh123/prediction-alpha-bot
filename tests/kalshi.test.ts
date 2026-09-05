@@ -1,9 +1,13 @@
 import axios from "axios";
 import { describe, expect, it, vi } from "vitest";
 import {
+  fetchKalshiMarketSettlement,
   fetchKalshiOrderBook,
   fetchKalshiMarkets,
+  kalshiPaperSlug,
+  kalshiTickerFromPaperSlug,
   normalizeKalshiMarket,
+  normalizeKalshiMarketSettlement,
   normalizeKalshiOrderBook,
 } from "../src/utils/kalshi.js";
 
@@ -12,6 +16,51 @@ vi.mock("axios", () => ({
     get: vi.fn(),
   },
 }));
+
+describe("kalshi paper legs and settlement", () => {
+  it("names a Kalshi paper leg by its ticker and reads it back", () => {
+    expect(kalshiPaperSlug(" KXTEST ")).toBe("kalshi:KXTEST");
+    expect(kalshiTickerFromPaperSlug("kalshi:KXTEST")).toBe("KXTEST");
+    expect(kalshiTickerFromPaperSlug("kalshi:")).toBeUndefined();
+    expect(kalshiTickerFromPaperSlug("will-x-happen")).toBeUndefined();
+  });
+
+  it("normalizes a settled market's result and times", () => {
+    expect(
+      normalizeKalshiMarketSettlement({
+        ticker: "KXTEST",
+        status: "Settled",
+        result: "Yes",
+        close_time: "2026-09-01T15:00:00Z",
+        expiration_time: "2026-09-02T15:00:00Z",
+      }),
+    ).toEqual({
+      ticker: "KXTEST",
+      status: "settled",
+      result: "YES",
+      closeTime: Date.parse("2026-09-01T15:00:00Z"),
+      expirationTime: Date.parse("2026-09-02T15:00:00Z"),
+    });
+    expect(normalizeKalshiMarketSettlement({ ticker: "KXOPEN", status: "open" })).toMatchObject({
+      result: null,
+      closeTime: null,
+    });
+  });
+
+  it("reads the market by ticker and treats a 404 as not a market", async () => {
+    vi.mocked(axios.get).mockResolvedValueOnce({
+      data: { market: { ticker: "KXTEST", status: "settled", result: "no", close_time: "2026-09-01T15:00:00Z" } },
+    });
+    expect(await fetchKalshiMarketSettlement("KXTEST")).toMatchObject({ ticker: "KXTEST", result: "NO" });
+    expect(vi.mocked(axios.get).mock.calls.at(-1)?.[0]).toBe(
+      "https://external-api.kalshi.com/trade-api/v2/markets/KXTEST",
+    );
+
+    vi.mocked(axios.get).mockRejectedValue({ response: { status: 404 } });
+    expect(await fetchKalshiMarketSettlement("KXNOPE")).toBeNull();
+    vi.mocked(axios.get).mockReset();
+  });
+});
 
 describe("kalshi utilities", () => {
   it("normalizes Kalshi bid-only books into complementary ask ladders", () => {

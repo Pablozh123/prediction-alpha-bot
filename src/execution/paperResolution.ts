@@ -2,6 +2,10 @@ import axios from "axios";
 import { pathToFileURL } from "node:url";
 import { closeDb, getDb, initDb } from "./db.js";
 import { type PaperTrade, type PaperTradeSide } from "./tradeJournal.js";
+import {
+  fetchKalshiMarketSettlement,
+  kalshiTickerFromPaperSlug,
+} from "../utils/kalshi.js";
 import { retryWithBackoff, withTimeout } from "../utils/reliability.js";
 
 const GAMMA_MARKETS_URL = "https://gamma-api.polymarket.com/markets";
@@ -131,6 +135,14 @@ export async function fetchMarketResolution(
     };
   }
 
+  // A Kalshi leg (decision E5) is journaled under kalshi:<ticker> and is
+  // settled by Kalshi's own market result, not by Gamma.
+  const kalshiTicker = request.slug ? kalshiTickerFromPaperSlug(request.slug) : undefined;
+
+  if (kalshiTicker && request.slug) {
+    return resolveKalshiMarket(kalshiTicker, request.slug);
+  }
+
   const response = await retryWithBackoff(
     () =>
       withTimeout(
@@ -157,6 +169,39 @@ export async function fetchMarketResolution(
   }
 
   return inferResolutionFromMarket(market, request);
+}
+
+const KALSHI_SETTLED_STATUSES = new Set(["settled", "finalized", "determined"]);
+
+async function resolveKalshiMarket(
+  ticker: string,
+  slug: string
+): Promise<MarketResolution> {
+  const market = await fetchKalshiMarketSettlement(ticker);
+
+  if (!market) {
+    return { status: "unresolved", slug, reason: "kalshi_market_not_found" };
+  }
+
+  // The trading close is the moment after which no fill is a fill; the
+  // result may be determined days later.
+  const resolvedAt = market.closeTime ?? market.expirationTime ?? undefined;
+
+  if (market.result) {
+    return {
+      status: "resolved",
+      winningSide: market.result,
+      slug,
+      ...(resolvedAt !== undefined ? { resolvedAt } : {}),
+      reason: "kalshi_result"
+    };
+  }
+
+  if (KALSHI_SETTLED_STATUSES.has(market.status)) {
+    return { status: "ambiguous", slug, reason: "kalshi_settled_without_binary_result" };
+  }
+
+  return { status: "unresolved", slug, reason: "kalshi_market_not_settled" };
 }
 
 export async function resolvePaperTradesForMarket(

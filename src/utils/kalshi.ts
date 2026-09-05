@@ -7,6 +7,40 @@ const KALSHI_BASE_URL = "https://external-api.kalshi.com/trade-api/v2";
 const KALSHI_TIMEOUT_MS = 10_000;
 const DEFAULT_KALSHI_MARKET_LIMIT = 200;
 
+/**
+ * A paper trade on a Kalshi leg is journaled under this slug prefix, so the
+ * resolution loop knows which venue to ask (decision E5 of
+ * docs/ARB_TAXONOMY.md: cross-venue pairs paper-fire since 2026-09-05).
+ */
+export const KALSHI_PAPER_SLUG_PREFIX = "kalshi:";
+
+export function kalshiPaperSlug(ticker: string): string {
+  return `${KALSHI_PAPER_SLUG_PREFIX}${ticker.trim()}`;
+}
+
+export function kalshiTickerFromPaperSlug(slug: string): string | undefined {
+  const value = slug.trim();
+
+  if (!value.startsWith(KALSHI_PAPER_SLUG_PREFIX)) {
+    return undefined;
+  }
+
+  const ticker = value.slice(KALSHI_PAPER_SLUG_PREFIX.length).trim();
+
+  return ticker || undefined;
+}
+
+/** What Kalshi says about one market's settlement, read without credentials. */
+export type KalshiMarketSettlement = {
+  ticker: string;
+  /** Kalshi's status word, lower case: open, closed, settled, finalized, ... */
+  status: string;
+  /** The side that paid, when the market has a binary result. */
+  result: "YES" | "NO" | null;
+  closeTime: number | null;
+  expirationTime: number | null;
+};
+
 export type KalshiOrderBook = {
   ticker: string;
   yesBids: OrderBookLevel[];
@@ -51,6 +85,62 @@ type RawKalshiOrderBook = {
     no_dollars?: RawKalshiOrderBookLevel[];
   };
 };
+
+/**
+ * One market by ticker. Null when Kalshi answers 404: the ticker is not a
+ * market there, and the caller records that instead of failing the batch.
+ */
+export async function fetchKalshiMarketSettlement(
+  ticker: string,
+): Promise<KalshiMarketSettlement | null> {
+  const cleaned = ticker.trim();
+
+  if (!cleaned) {
+    throw new Error("Cannot fetch Kalshi market: ticker is required.");
+  }
+
+  try {
+    const response = await retryWithBackoff(
+      () =>
+        withTimeout(
+          axios.get<{ market?: RawKalshiMarket }>(
+            `${KALSHI_BASE_URL}/markets/${encodeURIComponent(cleaned)}`,
+            { timeout: KALSHI_TIMEOUT_MS },
+          ),
+          KALSHI_TIMEOUT_MS + 1_000,
+          "Kalshi market request timed out.",
+        ),
+      { attempts: 2, baseDelayMs: 250, maxDelayMs: 1_000 },
+    );
+    const raw = response?.data?.market;
+
+    return raw ? normalizeKalshiMarketSettlement(raw) : null;
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+
+    if (status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export function normalizeKalshiMarketSettlement(
+  raw: RawKalshiMarket,
+): KalshiMarketSettlement {
+  const result = String(raw.result ?? "").trim().toLowerCase();
+
+  return {
+    ticker: String(raw.ticker ?? "").trim(),
+    status: String(raw.status ?? "").trim().toLowerCase(),
+    result: result === "yes" ? "YES" : result === "no" ? "NO" : null,
+    closeTime: parseTimestampMs(raw.close_time ?? raw.closeTime),
+    expirationTime: parseTimestampMs(
+      raw.expiration_time ?? raw.expirationTime ?? raw.settlement_ts ?? raw.settlementTs,
+    ),
+  };
+}
 
 export async function fetchKalshiOrderBook(
   ticker: string,
